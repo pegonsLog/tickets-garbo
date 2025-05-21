@@ -1,0 +1,90 @@
+<link href="https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap" rel="stylesheet">
+<style>
+  body, .street-search-container {
+    font-family: 'Montserrat', sans-serif;
+  }
+  .results-table th, .results-table td {
+    padding: 4px 8px;
+    text-align: left;
+  }
+  .results-table th:nth-child(4), .results-table td:nth-child(4) {
+    width: 1%;
+    white-space: nowrap;
+  }
+  .results-table th:nth-child(1), .results-table td:nth-child(1) {
+    width: 1%;
+    white-space: nowrap;
+  }
+  .results-table th:nth-child(2), .results-table td:nth-child(2) {
+    width: 1%;
+    white-space: nowrap;
+  }
+  .results-table th:nth-child(5), .results-table td:nth-child(5) {
+    width: 60px;
+    max-width: 60px;
+    text-align: center;
+  }
+  .results-table th:nth-child(6), .results-table td:nth-child(6) {
+    width: 450px;
+    max-width: 450px;
+    word-break: break-word;
+  }
+  .results-table tbody tr:not(:last-child) td {
+    border-bottom: 1px solid #7a7878;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .results-table tbody tr:first-child td {
+    padding-top: 30px;
+  }
+  .status-encerrada {
+    color: #f80000;
+  }
+  .numero-match {
+    color: #009900;
+    font-weight: bold;
+  }
+</style>
+<div style="background: #e3f0fa; border: 1px solid #ccc; border-radius: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); padding: 20px 10px; margin: 15px 0 10px 0; width: auto; align-self: flex-start;">
+  <h1 style="margin: 0; text-align: center; font-size: 1.5rem; letter-spacing: 1px; font-weight: 700; font-family: 'Montserrat', sans-serif; color: #1a237e;">PESQUISA DE TICKETS DO MESMO LOCAL</h1>
+</div>
+<div class="street-search-container" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; min-height: 100vh;">
+  <h2 style="margin: 0 0 16px 0; white-space: nowrap; text-align: left;">Buscar local</h2>
+  <div style="display: flex; flex-direction: row; align-items: center; gap: 8px; margin-bottom: 24px;">
+    <input [(ngModel)]="streetName" placeholder="Digite o nome da rua" style="width: 600px;" />
+    <input [(ngModel)]="streetNumber" placeholder="Número" style="width: 100px;" />
+    <button (click)="searchStreet()" [disabled]="loading || !streetName">Buscar</button>
+  </div>
+
+  <div *ngIf="loading">Buscando...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <div *ngIf="results.length">
+    <h3>Resultados:</h3>
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th>Número da Solicitação</th>
+          <th>Data Criação</th>
+          <th>Status</th>
+          <th>Rua</th>
+          <th>Número</th>
+          <th>Descrição</th>
+          <th>Resumo do que está sendo solicitado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let result of results">
+          <td>{{ result.NUM_SOLICITACAO }}</td>
+          <td>{{ result.DATA_CRIACAO }}</td>
+          <td [ngClass]="{'status-encerrada': result.STATUS === 'ENCERRADA'}">{{ result.STATUS }}</td>
+          <td>{{ result.RUA }}</td>
+          <td [ngClass]="{'numero-match': result.NUMERO == streetNumber}">{{ result.NUMERO }}</td>
+          <td>{{ result.DESCRICAO }}</td>
+          <td>{{ result.RESUMO || 'Resumindo...' }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+  </div>
+</div>

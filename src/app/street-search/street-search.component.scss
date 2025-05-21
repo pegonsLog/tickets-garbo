@@ -1,0 +1,38 @@
+.street-search-container {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fafafa;
+  box-sizing: border-box;
+}
+
+input {
+  width: 250px;
+  padding: 0 8px;
+  margin-bottom: 0;
+  height: 38px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+input[type="number"] {
+  width: 100px;
+}
+
+button {
+  padding: 0 18px;
+  margin-left: 4px;
+  height: 38px;
+  font-size: 16px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+
+.error {
+  color: red;
+  margin-top: 8px;
+}
