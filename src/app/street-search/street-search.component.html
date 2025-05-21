@@ -65,7 +65,7 @@
       <thead>
         <tr>
           <th>Número da Solicitação</th>
-          <th>Data Criação</th>
+          <th>Data Entrada</th>
           <th>Status</th>
           <th>Rua</th>
           <th>Número</th>
@@ -76,7 +76,7 @@
       <tbody>
         <tr *ngFor="let result of results">
           <td>{{ result.NUM_SOLICITACAO }}</td>
-          <td>{{ result.DATA_CRIACAO }}</td>
+          <td>{{ result.DATA_ENTRADA }}</td>
           <td [ngClass]="{'status-encerrada': result.STATUS === 'ENCERRADA'}">{{ result.STATUS }}</td>
           <td>{{ result.RUA }}</td>
           <td [ngClass]="{'numero-match': result.NUMERO == streetNumber}">{{ result.NUMERO }}</td>

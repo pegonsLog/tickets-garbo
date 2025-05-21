@@ -58,7 +58,7 @@ export class StreetSearchComponent {
         return;
       }
       const filteredRows = dataRows.filter((row: any) => {
-        const ruaMatch = row[idxRua] && row[idxRua].toLowerCase().includes(this.streetName.toLowerCase());
+        const ruaMatch = row[idxRua] && row[idxRua].toLowerCase().includes(this.streetName.trim().toLowerCase());
         let numeroMatch = true;
         if (this.streetNumber && idxNum !== -1 && row[idxNum]) {
           // Remover separador '.' dos números para comparação
@@ -77,17 +77,36 @@ export class StreetSearchComponent {
         NUM_SOLICITACAO: row[1] || '',
         RUA: row[idxRua],
         NUMERO: idxNum !== -1 ? row[idxNum] : '',
-        DATA_CRIACAO: row[6] || '',
+        DATA_ENTRADA: row[5] || '',
         STATUS: idxStatus !== -1 ? row[idxStatus] : '',
         DESCRICAO: idxDescricao !== -1 ? row[idxDescricao] : ''
       }));
       this.results = filteredRows.sort((a: any, b: any) => {
         const numA = Number(a.NUMERO);
         const numB = Number(b.NUMERO);
-        if (!isNaN(numA) && !isNaN(numB)) {
-          return numA - numB;
+        if (numA !== numB) {
+          if (!isNaN(numA) && !isNaN(numB)) {
+            return numA - numB;
+          }
+          return String(a.NUMERO).localeCompare(String(b.NUMERO));
         }
-        return String(a.NUMERO).localeCompare(String(b.NUMERO));
+        // Segunda ordenação: DATA_ENTRADA crescente (robusto para texto dd/mm/yyyy, dd-mm-yyyy, yyyy-mm-dd)
+        function parseDate(str: string): number {
+          if (!str) return 0;
+          // Tenta yyyy-mm-dd (ISO)
+          const isoMatch = str.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+          if (isoMatch) return new Date(str).getTime();
+          // Tenta dd/mm/yyyy ou dd-mm-yyyy
+          const brMatch = str.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})/);
+          if (brMatch) {
+            const [_, d, m, y] = brMatch;
+            return new Date(`${y}-${m}-${d}`).getTime();
+          }
+          return new Date(str).getTime(); // fallback
+        }
+        const dateA = parseDate(a.DATA_ENTRADA);
+        const dateB = parseDate(b.DATA_ENTRADA);
+        return dateA - dateB;
       });
       if (this.results.length === 0) {
         this.error = 'Nenhum registro encontrado.';
