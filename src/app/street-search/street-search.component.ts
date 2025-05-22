@@ -1,32 +1,35 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClientModule } from '@angular/common/http';
 import { GroqService } from './groq.service';
+import { HttpClient } from '@angular/common/http';
+import { StreetSearchResult } from './street-search.component.model';
 
 @Component({
   selector: 'app-street-search',
   standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './street-search.component.html',
   styleUrls: ['./street-search.component.scss']
 })
 export class StreetSearchComponent {
-  constructor(private groqService: GroqService) {}
+  // Recomenda-se mover spreadsheetId, sheetName e apiKey para um arquivo de configuração seguro
+  private readonly spreadsheetId = '1C8gFU2yms0jAvGBtKOcqlgNY6psW5JJ47pWbiFJlZSM';
+  private readonly sheetName = 'TODAS';
+  // ATENÇÃO: Substitua pela leitura de variável de ambiente/config
+  private readonly apiKey = 'AIzaSyDSKz2lNc-d_KsdDkMBidbQjyEU65Z9Z5E';
+
   streetName: string = '';
   streetNumber: string = '';
-  results: any[] = [];
+  statusFilter: string = 'TODAS';
+  results: StreetSearchResult[] = [];
   loading: boolean = false;
   error: string = '';
 
-
-  // ID da sua planilha
-  private spreadsheetId = '1C8gFU2yms0jAvGBtKOcqlgNY6psW5JJ47pWbiFJlZSM';
-  // Nome da aba (sheet)
-  private sheetName = 'TODAS';
-  // Chave da API do Google
-  private apiKey = 'AIzaSyDSKz2lNc-d_KsdDkMBidbQjyEU65Z9Z5E';
-
+  constructor(
+    private groqService: GroqService,
+    private http: HttpClient
+  ) {}
 
   async searchStreet() {
     this.loading = true;
@@ -35,10 +38,10 @@ export class StreetSearchComponent {
     try {
       const range = `${encodeURIComponent(this.sheetName)}!A1:Z`;
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${range}?key=${this.apiKey}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Erro ao acessar a planilha');
-      const data = await response.json();
-      if (!data.values || data.values.length < 2) {
+      const data: any = await this.http.get(url).toPromise().catch((err) => {
+        throw new Error('Erro ao acessar a planilha: ' + (err?.message || err));
+      });
+      if (!data?.values || data.values.length < 2) {
         this.error = 'Nenhum dado encontrado na planilha.';
         this.loading = false;
         return;
@@ -52,6 +55,7 @@ export class StreetSearchComponent {
       const idxNum = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'NUM');
       const idxDescricao = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'DESCRICAO');
       const idxStatus = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'STATUS');
+      const idxMensagem = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'MENSAGEM');
       if (idxRua === -1) {
         this.error = 'Coluna RUA não encontrada no cabeçalho da planilha.';
         this.loading = false;
@@ -72,14 +76,19 @@ export class StreetSearchComponent {
             numeroMatch = rowNumStr.toLowerCase().includes(inputNumStr.toLowerCase());
           }
         }
-        return ruaMatch && numeroMatch;
-      }).map((row: any) => ({
+        let statusMatch = true;
+        if (this.statusFilter !== 'TODAS' && idxStatus !== -1) {
+          statusMatch = row[idxStatus] && row[idxStatus].toUpperCase() === this.statusFilter;
+        }
+        return ruaMatch && numeroMatch && statusMatch;
+      }).map((row: any): StreetSearchResult => ({
         NUM_SOLICITACAO: row[1] || '',
         RUA: row[idxRua],
         NUMERO: idxNum !== -1 ? row[idxNum] : '',
         DATA_ENTRADA: row[5] || '',
         STATUS: idxStatus !== -1 ? row[idxStatus] : '',
-        DESCRICAO: idxDescricao !== -1 ? row[idxDescricao] : ''
+        DESCRICAO: idxDescricao !== -1 ? row[idxDescricao] : '',
+        MENSAGEM: idxMensagem !== -1 ? row[idxMensagem] : ''
       }));
       this.results = filteredRows.sort((a: any, b: any) => {
         const numA = Number(a.NUMERO);
@@ -109,24 +118,23 @@ export class StreetSearchComponent {
         return dateA - dateB;
       });
       if (this.results.length === 0) {
-        this.error = 'Nenhum registro encontrado.';
+        this.error = 'Nenhum registro encontrado para os filtros informados.';
       } else {
         // Para cada resultado, resumir o campo DESCRICAO usando a API Groq
-        for (const result of this.results) {
+        this.results.forEach(result => {
           if (result.DESCRICAO) {
             this.groqService.resumirDescricao(result.DESCRICAO).subscribe({
               next: (response) => {
                 result.RESUMO = response.choices?.[0]?.message?.content || '';
               },
-              error: () => {
-                result.RESUMO = 'Erro ao resumir';
+              error: (err) => {
+                result.RESUMO = 'Erro ao resumir: ' + (err?.message || '');
               }
             });
           } else {
             result.RESUMO = 'Descrição não informada';
           }
-        }
-
+        });
       }
     } catch (err: any) {
       this.error = err.message || 'Erro ao buscar dados.';
