@@ -56,6 +56,7 @@ export class StreetSearchComponent {
       const idxDescricao = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'DESCRICAO');
       const idxStatus = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'STATUS');
       const idxMensagem = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'MENSAGEM');
+      const idxOrigem = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'ORIGEM');
       if (idxRua === -1) {
         this.error = 'Coluna RUA não encontrada no cabeçalho da planilha.';
         this.loading = false;
@@ -84,10 +85,11 @@ export class StreetSearchComponent {
       }).map((row: any): StreetSearchResult => ({
         NUM_SOLICITACAO: row[1] || '',
         RUA: row[idxRua],
-        NUMERO: idxNum !== -1 ? row[idxNum] : '',
+        NUMERO: idxNum !== -1 && row[idxNum] ? row[idxNum].toString().replace(/\./g, '') : '',
         DATA_ENTRADA: row[5] || '',
         STATUS: idxStatus !== -1 ? row[idxStatus] : '',
         DESCRICAO: idxDescricao !== -1 ? row[idxDescricao] : '',
+        ORIGEM: idxOrigem !== -1 ? row[idxOrigem] : '',
         MENSAGEM: idxMensagem !== -1 ? row[idxMensagem] : ''
       }));
       this.results = filteredRows.sort((a: any, b: any) => {
