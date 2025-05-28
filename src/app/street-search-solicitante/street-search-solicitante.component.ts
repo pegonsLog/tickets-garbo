@@ -1,49 +1,46 @@
 import { Component } from '@angular/core';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { GroqService } from './groq.service';
-import { HttpClient } from '@angular/common/http';
-import { StreetSearchResult } from './street-search.component.model';
-
+import { GroqService } from '../street-search/groq.service';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { StreetSearchResult } from '../street-search/street-search.component.model';
 import { EditarRespostaComponent } from '../editar-resposta/editar-resposta.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { environment } from '../../environments/environment';
-import { StreetSearchSolicitanteComponent } from '../street-search-solicitante/street-search-solicitante.component';
-import { Router } from '@angular/router';
 
 @Component({
-  selector: 'app-street-search',
+  selector: 'app-street-search-solicitante',
   standalone: true,
   imports: [
     CommonModule,
     FormsModule,
+    HttpClientModule,
     MatProgressSpinnerModule,
     EditarRespostaComponent,
-    StreetSearchSolicitanteComponent,
   ],
-  templateUrl: './street-search.component.html',
-  styleUrls: ['./street-search.component.scss']
+  templateUrl: './street-search-solicitante.component.html',
+  styleUrls: ['./street-search-solicitante.component.scss']
 })
-export class StreetSearchComponent {
+export class StreetSearchSolicitanteComponent {
 
-
-  // Recomenda-se mover spreadsheetId, sheetName e apiKey para um arquivo de configuração seguro
-  private readonly spreadsheetId = '1C8gFU2yms0jAvGBtKOcqlgNY6psW5JJ47pWbiFJlZSM';
+  private readonly spreadsheetId = '1CghEnK-3R74P5OvcR4C6wMhAl27xkoT4CgwtMwsldeU';
   private readonly sheetName = 'TODAS';
-  // ATENÇÃO: Substitua pela leitura de variável de ambiente/config
   private readonly apiKey = environment.apiKey;
 
-  streetName: string = '';
+  applicantName: string = '';
   streetNumber: string = '';
   statusFilter: string = 'TODAS';
   results: StreetSearchResult[] = [];
   loading: boolean = false;
   error: string = '';
 
+  textoParaEditar: string | null = null;
+
   constructor(
     private groqService: GroqService,
     private http: HttpClient,
-    private router: Router
+    private router: Router,
   ) {}
 
   async searchStreet() {
@@ -66,19 +63,19 @@ export class StreetSearchComponent {
       // Log do cabeçalho para debug
       console.log('Cabeçalho da planilha:', header);
       // Busca tolerante a espaços e maiúsculas/minúsculas
-      const idxRua = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'RUA');
+      const idxSolicitante = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'SOLICITANTE');
       const idxNum = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'NUM');
       const idxDescricao = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'DESCRICAO');
       const idxStatus = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'STATUS');
       const idxMensagem = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'MENSAGEM');
       const idxOrigem = header.findIndex((h: string) => h.replace(/\s+/g, '').toUpperCase() === 'ORIGEM');
-      if (idxRua === -1) {
-        this.error = 'Coluna RUA não encontrada no cabeçalho da planilha.';
+      if (idxSolicitante === -1) {
+        this.error = 'Coluna SOLICITANTE não encontrada no cabeçalho da planilha.';
         this.loading = false;
         return;
       }
       const filteredRows = dataRows.filter((row: any) => {
-        const ruaMatch = row[idxRua] && row[idxRua].toLowerCase().includes(this.streetName.trim().toLowerCase());
+        const solicitanteMatch = row[idxSolicitante] && row[idxSolicitante].toLowerCase().includes(this.applicantName.trim().toLowerCase());
         let numeroMatch = true;
         if (this.streetNumber && idxNum !== -1 && row[idxNum]) {
           // Remover separador '.' dos números para comparação
@@ -96,10 +93,10 @@ export class StreetSearchComponent {
         if (this.statusFilter !== 'TODAS' && idxStatus !== -1) {
           statusMatch = row[idxStatus] && row[idxStatus].toUpperCase() === this.statusFilter;
         }
-        return ruaMatch && numeroMatch && statusMatch;
+        return solicitanteMatch && numeroMatch && statusMatch;
       }).map((row: any): StreetSearchResult => ({
         NUM_SOLICITACAO: row[1] || '',
-        RUA: row[idxRua],
+        RUA: '', // Não definido neste contexto, pois busca é por solicitante
         NUMERO: idxNum !== -1 && row[idxNum] ? row[idxNum].toString().replace(/\./g, '') : '',
         DATA_ENTRADA: row[5] || '',
         STATUS: idxStatus !== -1 ? row[idxStatus] : '',
@@ -160,12 +157,11 @@ export class StreetSearchComponent {
     }
   }
 
-  textoParaEditar: string | null = null;
-
   abrirEditorResposta(result: StreetSearchResult) {
     this.textoParaEditar = result.MENSAGEM ?? '';
   }
-  searchBySolicitante() {
-    this.router.navigate(['/buscar-por-solicitante']);
+
+  returnStreetSearch() {
+    this.router.navigate(['']);
   }
 }

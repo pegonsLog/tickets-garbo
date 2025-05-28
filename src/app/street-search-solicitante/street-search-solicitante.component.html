@@ -1,6 +1,6 @@
 <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap" rel="stylesheet">
 <style>
-  body, .street-search-container {
+  body, .street-search-solicitante {
     font-family: 'Montserrat', sans-serif;
   }
   .results-table th, .results-table td {
@@ -68,21 +68,19 @@
 <div style="background: #e3f0fa; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); padding: 20px 10px; margin: 15px 10px 10px 10px; width: auto; align-self: flex-start;">
   <h1 style="margin: 0; text-align: center; font-size: 1.5rem; letter-spacing: 1px; font-family: 'Montserrat', sans-serif; color: #1a237e;">PESQUISA DE TICKETS DO MESMO LOCAL</h1>
 </div>
-<div class="street-search-container" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; min-height: 100vh;">
-  <h2 style="margin: 0 0 16px 0; white-space: nowrap; text-align: left;">Buscar local</h2>
+<div class="street-search-solicitante" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; min-height: 100vh;">
+  <h2 style="margin: 0 0 16px 0; white-space: nowrap; text-align: left;">Buscar por solicitante</h2>
   <div style="display: flex; flex-direction: row; align-items: center; gap: 8px; margin-bottom: 24px;">
-    <input [(ngModel)]="streetName" placeholder="Digite o nome da rua" style="width: 600px; border: 1px solid #ccc; border-radius: 4px" />
-    <input [(ngModel)]="streetNumber" placeholder="Número" style="width: 100px; border: 1px solid #ccc; border-radius: 4px" />
-    <select [(ngModel)]="statusFilter"
+    <input [(ngModel)]="applicantName" placeholder="Digite o nome do solicitante" style="width: 600px; border: 1px solid #ccc; border-radius: 4px" />
+  <select [(ngModel)]="statusFilter"
   style="width: 130px; height: 38px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-size: 1rem; font-family: 'Montserrat', sans-serif; color: #757575; box-sizing: border-box;">
   <option value="TODAS">Todas</option>
   <option value="ABERTA">Aberta</option>
   <option value="ENCERRADA">Encerrada</option>
-</select>
-    <button (click)="searchStreet()" [disabled]="loading || !streetName">Buscar</button>
-    <button (click)="searchBySolicitante()">Por solicitante</button>
+  </select>
+    <button (click)="searchStreet()" [disabled]="loading || !applicantName">Buscar</button>
+    <button (click)="returnStreetSearch()">Voltar</button>
   </div>
-
 
   <div *ngIf="loading">Buscando...</div>
   <div *ngIf="error" class="error">{{ error }}</div>
@@ -98,9 +96,10 @@
           <th>Status</th>
           <th style="width: 250px; max-width: 250px; text-align: left;">Rua</th>
           <th style="width: 100px; max-width: 80px;">Número</th>
-          <th style="width: 260px; max-width: 260px;">Descrição</th>
-          <th style="width: 260px; max-width: 260px;">Resumo do que está sendo solicitado</th>
-          <th style="width: 260px; max-width: 260px;">Resposta</th>
+          <th style="width: 260px; max-width: 260px; word-break: break-word;">Descrição</th>
+          <th style="width: 260px; max-width: 260px; word-break: break-word;">Resumo do que está sendo solicitado</th>
+          <th style="width: 260px; max-width: 260px; word-break: break-word;">Resposta</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -109,8 +108,7 @@
           <td>{{ result.ORIGEM }}</td>
           <td>{{ result.DATA_ENTRADA }}</td>
           <td [ngClass]="{'status-encerrada': result.STATUS === 'ENCERRADA'}">{{ result.STATUS }}</td>
-          <td style="width: 250px; max-width: 250px;">{{ result.RUA }}</td>
-          <td [ngClass]="{'numero-match': result.NUMERO == streetNumber}" style="width: 80px; max-width: 80px;">{{ result.NUMERO }}</td>
+          <td style="width: 250px; max-width: 250px; text-align: left;">{{ result.RUA }}</td>
           <td style="width: 260px; max-width: 260px; word-break: break-word;">{{ result.DESCRICAO }}</td>
           <td style="width: 260px; max-width: 260px; word-break: break-word;">{{ result.RESUMO || 'Resumindo...' }}</td>
           <td class="mensagem-cell" style="width: 260px; max-width: 260px; word-break: break-word;">{{ result.STATUS === 'ABERTA' ? 'AGUARDANDO RESPOSTA' : result.MENSAGEM }}</td>

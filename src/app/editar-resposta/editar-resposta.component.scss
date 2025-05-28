@@ -1,0 +1,27 @@
+.editar-resposta-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+button {
+  padding: 0 18px;
+  margin-left: 4px;
+  height: 38px;
+  font-size: 16px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  align-self: flex-start;
+}
+
+button:hover {
+  background: #d0e5f7;
+}
+
+textarea {
+  padding: 20px;
+  width: 900px;
+}
