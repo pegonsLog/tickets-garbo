@@ -80,6 +80,7 @@
   </select>
     <button (click)="searchStreet()" [disabled]="loading || !applicantName">Buscar</button>
     <button (click)="returnStreetSearch()">Voltar</button>
+    <button (click)="navigateToRespostaPadrao()" style="margin-left: 10px;">Respostas Padrão</button> <!-- Added navigation button -->
   </div>
 
   <div *ngIf="loading">Buscando...</div>

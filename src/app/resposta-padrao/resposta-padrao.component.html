@@ -1,0 +1,75 @@
+<link href="https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap" rel="stylesheet">
+
+<div class="resposta-padrao-container">
+  <div class="header-bar">
+    <h1>Biblioteca de Respostas Padrão</h1>
+  </div>
+
+
+  <div class="navigation-buttons">
+    <button (click)="navigateToStreetSearch()" class="nav-button">Ir para Pesquisa de Tickets</button>
+  </div>
+
+
+  <div class="filter-section">
+    <h2>Filtrar Respostas Existentes</h2>
+    <div class="filter-inputs">
+      <input type="text" [(ngModel)]="filtroGeral" (ngModelChange)="aplicarFiltros()"
+        placeholder="Buscar em Assunto ou Resposta...">
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="loading-message">Carregando respostas...</div>
+  <div *ngIf="error" class="error-message">{{ error }}</div>
+
+  <div class="results-section" *ngIf="!loading && respostasFiltradas.length > 0">
+    <h2>Respostas Encontradas ({{respostasFiltradas.length}})</h2>
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th>Assunto</th>
+          <th>Resposta</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let resp of respostasFiltradas; let i = index">
+          <td>{{ resp.assunto }}</td>
+          <td class="resposta-cell">{{ resp.resposta }}</td>
+          <td class="action-buttons">
+            <button (click)="copiarResposta(resp.resposta)" class="copy-button">Copiar</button>
+            <button (click)="editarResposta(resp, i)" class="edit-button">Editar</button>
+            <button (click)="excluirResposta(resp, i)" class="delete-button">Excluir</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div *ngIf="!loading && !error && !allRespostas.length && !filtroGeral" class="no-results-message">
+    Nenhuma resposta cadastrada ainda. Adicione uma nova resposta acima.
+  </div>
+  <div *ngIf="!loading && !error && allRespostas.length > 0 && !respostasFiltradas.length && filtroGeral"
+    class="no-results-message">
+    Nenhuma resposta encontrada com o termo "{{filtroGeral}}".
+  </div>
+
+
+
+  <div class="form-section">
+    <h2>{{ editIndex === null ? 'Adicionar Nova Resposta' : 'Editar Resposta' }}</h2>
+    <div class="input-group">
+      <label for="assunto">Assunto:</label>
+      <input id="assunto" type="text" [(ngModel)]="assuntoAtual" placeholder="Digite o assunto aqui">
+    </div>
+    <div class="input-group">
+      <label for="resposta">Resposta:</label>
+      <textarea id="resposta" [(ngModel)]="respostaAtual" placeholder="Digite a resposta aqui"></textarea>
+    </div>
+    <button (click)="salvarResposta()" class="action-button" [disabled]="!assuntoAtual || !respostaAtual">
+      {{ editIndex === null ? 'Salvar Nova Resposta' : 'Atualizar Resposta' }}
+    </button>
+    <button (click)="limparCampos()" class="clear-button">Limpar / Cancelar Edição</button>
+  </div>
+
+</div>

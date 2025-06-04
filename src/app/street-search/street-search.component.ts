@@ -8,7 +8,6 @@ import { StreetSearchResult } from './street-search.component.model';
 import { EditarRespostaComponent } from '../editar-resposta/editar-resposta.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { environment } from '../../environments/environment';
-import { StreetSearchSolicitanteComponent } from '../street-search-solicitante/street-search-solicitante.component';
 import { Router } from '@angular/router';
 
 @Component({
@@ -19,7 +18,6 @@ import { Router } from '@angular/router';
     FormsModule,
     MatProgressSpinnerModule,
     EditarRespostaComponent,
-    StreetSearchSolicitanteComponent,
   ],
   templateUrl: './street-search.component.html',
   styleUrls: ['./street-search.component.scss']
@@ -167,5 +165,9 @@ export class StreetSearchComponent {
   }
   searchBySolicitante() {
     this.router.navigate(['/buscar-por-solicitante']);
+  }
+
+  navigateToRespostaPadrao(): void {
+    this.router.navigate(['/resposta-padrao']);
   }
 }

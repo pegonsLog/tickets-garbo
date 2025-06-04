@@ -164,4 +164,8 @@ export class StreetSearchSolicitanteComponent {
   returnStreetSearch() {
     this.router.navigate(['']);
   }
+
+  navigateToRespostaPadrao(): void {
+    this.router.navigate(['/resposta-padrao']);
+  }
 }
