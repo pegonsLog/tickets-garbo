@@ -9,6 +9,9 @@ import { MatFormFieldModule } from '@angular/material/form-field'; // Ensure pre
 import { MatButtonModule } from '@angular/material/button'; // Ensure present
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { RespostaCompletaModalComponent } from '../resposta-completa-modal/resposta-completa-modal.component';
+
 
 // MatTableDataSource might still be used for filtering logic even without mat-table, so let's keep its import for now if it's used in the class.
 // However, MatTableModule itself is removed.
@@ -25,13 +28,14 @@ import { FirestoreRespostaService, Resposta } from '../services/firestore-respos
     MatFormFieldModule, // Ensure present
     MatButtonModule,    // Ensure present
     MatIconModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatDialogModule,
+    RespostaCompletaModalComponent // Adicionado aqui pois será usado no template ou aberto programaticamente,
   ],
   templateUrl: './resposta-padrao.component.html',
   styleUrls: ['./resposta-padrao.component.scss']
 })
 export class RespostaPadraoComponent implements OnInit, OnDestroy {
-
   allRespostas: Resposta[] = [];
   respostasFiltradas: Resposta[] = []; // Para o ngFor no HTML
 
@@ -52,7 +56,8 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
     private router: Router, 
     private route: ActivatedRoute, 
     private firestoreRespostaService: FirestoreRespostaService, 
-    private clipboard: Clipboard
+    private clipboard: Clipboard,
+    public dialog: MatDialog // Injetar MatDialog
   ) {}
 
   ngOnInit(): void {
@@ -73,6 +78,17 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
     if (this.dataSubscription) {
       this.dataSubscription.unsubscribe();
     }
+  }
+
+  // Método para abrir o modal de resposta completa
+  abrirModalRespostaCompleta(resposta: string): void {
+    this.dialog.open(RespostaCompletaModalComponent, {
+      width: '80vw', // Usar viewport width para melhor responsividade
+      maxWidth: '700px',
+      maxHeight: '80vh',
+      data: { textoCompleto: resposta },
+      autoFocus: false // Para evitar foco automático em elementos dentro do modal se não desejado
+    });
   }
 
   carregarRespostas(): void {

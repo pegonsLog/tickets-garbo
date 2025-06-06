@@ -36,7 +36,11 @@
       <tbody>
         <tr *ngFor="let resp of respostasFiltradas; let i = index">
           <td>{{ resp.assunto }}</td>
-          <td class="resposta-cell">{{ resp.resposta }}</td>
+          <td class="resposta-cell" (click)="abrirModalRespostaCompleta(resp.resposta)" style="cursor: pointer;">
+            {{resp.resposta}}
+            <!-- Opcional: Adicionar um ícone para indicar que é clicável -->
+            <!-- <mat-icon style="font-size: 16px; vertical-align: middle; margin-left: 5px;">open_in_full</mat-icon> -->
+          </td>
           <td>{{ resp.criador }}</td>
           <td class="action-buttons">
             <button (click)="copiarResposta(resp.resposta)" class="copy-button">Copiar</button>

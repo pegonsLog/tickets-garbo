@@ -1,0 +1,10 @@
+<h2 mat-dialog-title>Resposta Completa</h2>
+<mat-dialog-content class="mat-typography">
+  <div style="white-space: pre-wrap; word-wrap: break-word; max-height: 60vh; overflow-y: auto;">
+    {{ data.textoCompleto }}
+  </div>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button (click)="fechar()">Fechar</button>
+</mat-dialog-actions>
+
