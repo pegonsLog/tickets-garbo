@@ -5,7 +5,6 @@ import { GroqService } from './groq.service';
 import { HttpClient } from '@angular/common/http';
 import { StreetSearchResult } from './street-search.component.model';
 
-import { EditarRespostaComponent } from '../editar-resposta/editar-resposta.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { environment } from '../../environments/environment';
 import { Router } from '@angular/router';
@@ -17,7 +16,6 @@ import { Router } from '@angular/router';
     CommonModule,
     FormsModule,
     MatProgressSpinnerModule,
-    EditarRespostaComponent,
   ],
   templateUrl: './street-search.component.html',
   styleUrls: ['./street-search.component.scss']

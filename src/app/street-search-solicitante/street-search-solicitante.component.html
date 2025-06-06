@@ -87,7 +87,6 @@
   <div *ngIf="error" class="error">{{ error }}</div>
 
   <div *ngIf="results.length">
-  <app-editar-resposta *ngIf="textoParaEditar !== null" [textoEditavel]="textoParaEditar" (close)="textoParaEditar = null"></app-editar-resposta>
     <table class="results-table">
       <thead>
         <tr>

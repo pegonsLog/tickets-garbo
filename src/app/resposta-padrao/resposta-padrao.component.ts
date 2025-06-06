@@ -12,7 +12,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 // MatTableDataSource might still be used for filtering logic even without mat-table, so let's keep its import for now if it's used in the class.
 // However, MatTableModule itself is removed.
-import { RespostaPadraoService, Resposta } from '../services/resposta-padrao.service'; // Import service and interface
+import { FirestoreRespostaService, Resposta } from '../services/firestore-resposta.service'; // Import service and interface from Firestore
 
 @Component({
   selector: 'app-resposta-padrao',
@@ -37,10 +37,11 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
 
   assuntoAtual: string = '';
   respostaAtual: string = '';
+  criadorAtual: string = ''; // Novo campo para o formulário
   filtroGeral: string = '';
   
   editIndex: number | null = null; // Índice da resposta em edição (ou null se nova)
-  idRespostaEmEdicao: number | null = null; // ID da resposta em edição (DEVE SER NUMBER)
+  idRespostaEmEdicao: string | null = null; // ID da resposta em edição (Firestore ID é string)
 
   loading: boolean = false;
   error: string | null = null;
@@ -50,16 +51,15 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
   constructor(
     private router: Router, 
     private route: ActivatedRoute, 
-    private respostaPadraoService: RespostaPadraoService, 
+    private firestoreRespostaService: FirestoreRespostaService, 
     private clipboard: Clipboard
   ) {}
 
   ngOnInit(): void {
     // Verifica se há um ID na rota para carregar para edição
     const idParam = this.route.snapshot.paramMap.get('id');
-    if (idParam) {
-      const idParaEditar = +idParam; // Converte string para number
-      this.carregarRespostaParaEdicao(idParaEditar);
+    if (idParam) { // idParam é string | null. Se não for null, é o ID string.
+      this.carregarRespostaParaEdicao(idParam);
     } else {
       // Se não há ID, carrega todas as respostas para referência (se necessário para alguma lógica)
       // ou simplesmente prepara para uma nova entrada.
@@ -78,13 +78,13 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
   carregarRespostas(): void {
     this.loading = true;
     this.error = null;
-    this.dataSubscription = this.respostaPadraoService.getRespostas().subscribe({
-      next: (respostas) => {
-        this.allRespostas = [...respostas]; // Cria uma cópia para evitar mutação do cache do serviço
+    this.dataSubscription = this.firestoreRespostaService.getRespostas().subscribe({
+      next: (respostasAtualizadas: Resposta[]) => {
+        this.allRespostas = [...respostasAtualizadas]; // Cria uma cópia para evitar mutação do cache do serviço
         this.aplicarFiltros(); // Popula respostasFiltradas
         this.loading = false;
       },
-      error: (err) => {
+      error: (err: any) => {
         console.error('Erro ao carregar respostas:', err);
         this.error = 'Falha ao carregar respostas. Verifique sua conexão ou a API Key.';
         this.loading = false;
@@ -97,10 +97,13 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
       this.respostasFiltradas = [...this.allRespostas];
     } else {
       const termo = this.filtroGeral.toLowerCase().trim();
-      this.respostasFiltradas = this.allRespostas.filter(r =>
-        r.assunto.toLowerCase().includes(termo) ||
-        r.resposta.toLowerCase().includes(termo)
-      );
+      this.respostasFiltradas = this.allRespostas.filter(r => {
+        const termoLower = termo.toLowerCase(); // termo já é lowercase e trimmed
+        const assuntoMatch = r.assunto && typeof r.assunto === 'string' && r.assunto.toLowerCase().includes(termoLower);
+        const respostaMatch = r.resposta && typeof r.resposta === 'string' && r.resposta.toLowerCase().includes(termoLower);
+        const criadorMatch = r.criador && typeof r.criador === 'string' && r.criador.toLowerCase().includes(termoLower);
+        return !!(assuntoMatch || respostaMatch || criadorMatch);
+      });
     }
   };
 
@@ -109,7 +112,7 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
   }
 
   salvarResposta(): void {
-    if (!this.assuntoAtual.trim() || !this.respostaAtual.trim()) {
+    if (!this.assuntoAtual.trim() || !this.respostaAtual.trim() || !this.criadorAtual.trim()) { // Adiciona verificação para criador
       this.error = 'Assunto e Resposta não podem estar vazios.';
       this.loading = false; // Reset loading state
       return;
@@ -118,12 +121,13 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
     this.error = null; // Clear previous errors
 
     if (this.editIndex !== null && this.idRespostaEmEdicao) {
-      const respostaAtualizada: Resposta = {
+      const respostaParaSalvar: Resposta = {
         id: this.idRespostaEmEdicao,
         assunto: this.assuntoAtual.trim(),
-        resposta: this.respostaAtual.trim()
+        resposta: this.respostaAtual.trim(),
+        criador: this.criadorAtual.trim() // Adiciona criador
       };
-      this.respostaPadraoService.updateResposta(respostaAtualizada).subscribe({
+      this.firestoreRespostaService.updateResposta(respostaParaSalvar).subscribe({
         next: (res) => {
           const index = this.allRespostas.findIndex(r => r.id === res.id);
           if (index !== -1) this.allRespostas[index] = res;
@@ -131,7 +135,7 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
           this.limparCampos();
           this.loading = false;
         },
-        error: (err) => {
+        error: (err: any) => {
           console.error('Erro ao atualizar resposta:', err);
           this.error = err.message || 'Falha ao atualizar resposta.';
           this.loading = false;
@@ -140,16 +144,17 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
     } else {
       const novaResposta = {
         assunto: this.assuntoAtual.trim(),
-        resposta: this.respostaAtual.trim()
+        resposta: this.respostaAtual.trim(),
+        criador: this.criadorAtual.trim() // Adiciona criador aqui também
       };
-      this.respostaPadraoService.addResposta(novaResposta).subscribe({
-        next: (res) => {
-          this.allRespostas.push(res);
+      this.firestoreRespostaService.addResposta(novaResposta).subscribe({
+        next: (novaRespostaComId: Resposta) => { // Firestore service returns the full object with ID
+          // this.allRespostas.push(novaRespostaComId); // Removido: getRespostas() atualiza a lista automaticamente.
           this.aplicarFiltros();
           this.limparCampos();
           this.loading = false;
         },
-        error: (err) => {
+        error: (err: any) => {
           console.error('Erro ao adicionar resposta:', err);
           this.error = err.message || 'Falha ao adicionar resposta.';
           this.loading = false;
@@ -163,6 +168,7 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
   limparCampos(): void {
     this.assuntoAtual = '';
     this.respostaAtual = '';
+    this.criadorAtual = ''; // Limpa criador
     this.editIndex = null;
     this.idRespostaEmEdicao = null;
     this.error = null;
@@ -179,6 +185,7 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
   editarResposta(resp: Resposta, index: number): void {
     this.assuntoAtual = resp.assunto;
     this.respostaAtual = resp.resposta;
+    this.criadorAtual = resp.criador; // Carrega criador para edição
     this.editIndex = index; // Ou poderia ser o índice em allRespostas se mais robusto
     this.idRespostaEmEdicao = resp.id;
     window.scrollTo(0, 0); // Rola para o topo para o formulário de edição
@@ -188,7 +195,7 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
     // O 'index' aqui pode ser do 'respostasFiltradas'. Para robustez, usamos o ID.
     if (confirm(`Tem certeza que deseja excluir a resposta sobre "${resp.assunto}"?`)) {
       this.loading = true;
-      this.respostaPadraoService.deleteResposta(resp.id!).subscribe({
+      this.firestoreRespostaService.deleteResposta(resp.id).subscribe({ // resp.id is now string
         next: () => {
           this.allRespostas = this.allRespostas.filter(r => r.id !== resp.id);
           // Se editIndex correspondia ao item excluído, resetar campos
@@ -198,7 +205,7 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
           this.aplicarFiltros(); // Atualiza respostasFiltradas
           this.loading = false;
         },
-        error: (err) => {
+        error: (err: any) => {
           console.error('Erro ao excluir resposta:', err);
           this.error = 'Falha ao excluir resposta.';
           this.loading = false;
@@ -213,34 +220,33 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
     this.loading = false;
   }
 
-  private carregarRespostaParaEdicao(id: number): void {
+  private carregarRespostaParaEdicao(id: string): void { // ID é string
     this.loading = true;
     this.error = null;
     // Primeiro, garante que todas as respostas estão carregadas no cache do serviço
-    this.dataSubscription = this.respostaPadraoService.getRespostas().subscribe({
-      next: (respostas) => {
-        const resposta = respostas.find(r => r.id === id);
+    this.dataSubscription = this.firestoreRespostaService.getRespostaById(id).subscribe({
+      next: (resposta: Resposta | undefined) => { // firestoreRespostaService.getRespostaById(id) retorna Resposta | undefined
         if (resposta) {
           this.assuntoAtual = resposta.assunto;
           this.respostaAtual = resposta.resposta;
-          this.idRespostaEmEdicao = resposta.id;
-          // Encontrar o índice na lista allRespostas para manter a lógica de editIndex, se necessário
-          // Embora, ao carregar por ID, o editIndex possa ser menos crucial se a UI não depender dele diretamente
-          const indexNaListaFiltradaOuGeral = this.allRespostas.findIndex(r => r.id === id);
-          this.editIndex = indexNaListaFiltradaOuGeral !== -1 ? indexNaListaFiltradaOuGeral : null;
-          // Se a lista 'allRespostas' não foi populada antes (caso de entrada direta na edição),
-          // podemos precisar populá-la aqui também.
-          if (this.allRespostas.length === 0) {
-            this.allRespostas = [...respostas];
-            this.aplicarFiltros(); // Para popular respostasFiltradas se a UI depender disso
+          this.criadorAtual = resposta.criador;
+          this.idRespostaEmEdicao = resposta.id; // id já é string
+
+          if (this.allRespostas.length > 0) {
+            const indexNaLista = this.allRespostas.findIndex(r => r.id === id);
+            this.editIndex = indexNaLista !== -1 ? indexNaLista : null;
+          } else {
+            this.editIndex = null; 
+            // Considerar carregar allRespostas se for essencial para outras funcionalidades.
+            // this.carregarRespostas(); 
           }
         } else {
           this.error = 'Resposta não encontrada para edição.';
-          this.router.navigate(['/resposta-padrao']); // Redireciona se não encontrar
+          this.router.navigate(['/resposta-padrao']);
         }
         this.loading = false;
       },
-      error: (err) => {
+      error: (err: any) => {
         console.error('Erro ao carregar resposta para edição:', err);
         this.error = 'Falha ao carregar dados para edição.';
         this.loading = false;

@@ -15,7 +15,7 @@
     <h2>Filtrar Respostas Existentes</h2>
     <div class="filter-inputs">
       <input type="text" [(ngModel)]="filtroGeral" (ngModelChange)="aplicarFiltros()"
-        placeholder="Buscar em Assunto ou Resposta...">
+        placeholder="Buscar em Assunto, Resposta ou Criador...">
     </div>
   </div>
 
@@ -29,6 +29,7 @@
         <tr>
           <th>Assunto</th>
           <th>Resposta</th>
+          <th>Criador</th>
           <th>Ações</th>
         </tr>
       </thead>
@@ -36,6 +37,7 @@
         <tr *ngFor="let resp of respostasFiltradas; let i = index">
           <td>{{ resp.assunto }}</td>
           <td class="resposta-cell">{{ resp.resposta }}</td>
+          <td>{{ resp.criador }}</td>
           <td class="action-buttons">
             <button (click)="copiarResposta(resp.resposta)" class="copy-button">Copiar</button>
             <button (click)="editarResposta(resp, i)" class="edit-button">Editar</button>
@@ -66,7 +68,11 @@
       <label for="resposta">Resposta:</label>
       <textarea id="resposta" [(ngModel)]="respostaAtual" placeholder="Digite a resposta aqui"></textarea>
     </div>
-    <button (click)="salvarResposta()" class="action-button" [disabled]="!assuntoAtual || !respostaAtual">
+    <div class="input-group">
+      <label for="criador">Criador:</label>
+      <input id="criador" type="text" [(ngModel)]="criadorAtual" placeholder="Nome do criador">
+    </div>
+    <button (click)="salvarResposta()" class="action-button" [disabled]="!assuntoAtual || !respostaAtual || !criadorAtual">
       {{ editIndex === null ? 'Salvar Nova Resposta' : 'Atualizar Resposta' }}
     </button>
     <button (click)="limparCampos()" class="clear-button">Limpar / Cancelar Edição</button>
