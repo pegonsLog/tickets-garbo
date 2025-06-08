@@ -7,6 +7,7 @@ import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { StreetSearchResult } from '../street-search/street-search.component.model';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { environment } from '../../environments/environment';
+import { EditableTextDisplayComponent } from "../editable-text-display/editable-text-display.component";
 
 @Component({
   selector: 'app-street-search-solicitante',
@@ -16,7 +17,8 @@ import { environment } from '../../environments/environment';
     FormsModule,
     HttpClientModule,
     MatProgressSpinnerModule,
-  ],
+    EditableTextDisplayComponent
+],
   templateUrl: './street-search-solicitante.component.html',
   styleUrls: ['./street-search-solicitante.component.scss']
 })

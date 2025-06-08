@@ -1,0 +1,30 @@
+:host {
+  display: block; /* Faz o componente se comportar como um bloco */
+  width: 100%;   /* Ocupa toda a largura disponível */
+}
+
+textarea {
+  width: 100%;
+  box-sizing: border-box; /* Garante que padding e border não aumentem a largura total */
+  resize: none; /* Impede redimensionamento manual que pode conflitar */
+}
+
+.styled-copy-button {
+  background-color: #20c997; /* Cor azul-petróleo, similar à imagem */
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 1rem;
+  border-radius: 5px; /* Cantos arredondados */
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-bottom: 10px; /* Espaçamento abaixo do botão, antes do textarea */
+  margin-top: 10px;
+}
+
+.styled-copy-button:hover {
+  background-color: #17a2b8; /* Um tom de azul-petróleo um pouco mais escuro para o hover */
+}

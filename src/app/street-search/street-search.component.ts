@@ -8,6 +8,7 @@ import { StreetSearchResult } from './street-search.component.model';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { environment } from '../../environments/environment';
 import { Router } from '@angular/router';
+import { EditableTextDisplayComponent } from '../editable-text-display/editable-text-display.component';
 
 @Component({
   selector: 'app-street-search',
@@ -16,6 +17,7 @@ import { Router } from '@angular/router';
     CommonModule,
     FormsModule,
     MatProgressSpinnerModule,
+    EditableTextDisplayComponent,
   ],
   templateUrl: './street-search.component.html',
   styleUrls: ['./street-search.component.scss']

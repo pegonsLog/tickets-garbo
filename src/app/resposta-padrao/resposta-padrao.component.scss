@@ -103,6 +103,7 @@ body,
 
 .filter-section {
   padding: 20px;
+  margin-bottom: 20px;
   border: 1px solid #e0e0e0;
   border-radius: 6px;
   background: #f9f9f9;
@@ -200,6 +201,68 @@ button {
   border: 1px solid #b8d6fb;
 }
 
+.results-section {
+  margin-bottom: 10px; // Adiciona um espaço abaixo da seção de resultados
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 5px; // Espaço abaixo da tabela
+  table-layout: fixed; // Força o layout da tabela a usar larguras definidas
+  border: 1px solid #ddd;
+
+  th,
+  td {
+    border: 1px solid #ddd;
+    padding: 10px; // Aumentar um pouco o padding para melhor leitura
+    text-align: left;
+    vertical-align: top; // Alinha o conteúdo no topo da célula
+    box-sizing: border-box; // Para melhor controle de largura com padding/border
+  }
+
+  thead {
+    display: table; // Mudado para table para ter mais consistência com o layout normal de tabelas
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  th {
+    background-color: #f2f2f2;
+    font-weight: 600; // Um pouco mais de peso para o cabeçalho
+    position: sticky; // Reativando o sticky para o cabeçalho fixo
+    top: 0; 
+    z-index: 1;
+  }
+
+  tbody {
+    display: block; // Mantemos block para permitir scroll
+    max-height: 18em; // Altura para exibir ~5 linhas
+    width: 100%;
+    overflow-y: auto; // Volta para auto para mostrar barra de rolagem apenas quando necessário
+    overflow-x: hidden; // Importante para evitar rolagem horizontal
+  }
+
+  // Definição das larguras das colunas - essencial para o alinhamento
+ th:nth-child(1), td:nth-child(1) { width: 120px; } // Assunto
+ th:nth-child(2), td:nth-child(2) { width: 280px; } // Resposta (mais larga)
+ th:nth-child(3), td:nth-child(3) { width: 100px; } // Criador
+ th:nth-child(4), td:nth-child(4) { width: 100px; } // Ações
+  
+  // Ajustando o modo como as células exibem conteúdo para evitar quebra de layout
+  td, th {
+    white-space: nowrap; // Evita quebra de linha em palavras
+    overflow: hidden; // Esconde conteúdo que não cabe
+    text-overflow: ellipsis; // Mostra "..." para conteúdo cortado
+  }
+  
+  // Específico para a célula de resposta, limitando a altura
+  td:nth-child(2) {
+    white-space: nowrap; // Mantém em uma única linha
+    max-width: 0; // Força o texto a respeitar o truncamento
+  }
+}
+
 .error-message {
   color: #721c24;
   background-color: #f8d7da;
@@ -213,7 +276,7 @@ button {
 }
 
 .results-section {
-  margin-bottom: 25px;
+  margin-bottom: 20px;
 
   h2 {
     margin-bottom: 15px;

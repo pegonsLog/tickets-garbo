@@ -83,6 +83,11 @@
     <button (click)="navigateToRespostaPadrao()" style="margin-left: 10px;">Respostas Padrão</button> <!-- Added navigation button -->
   </div>
 
+  <div *ngIf="textoParaEditar !== null" class="editable-text-section" style="margin-top: 10px; width: 100%;">
+    <p>Resposta para Edição:</p>
+    <app-editable-text-display [textoParaExibir]="textoParaEditar"></app-editable-text-display>
+  </div>
+
   <div *ngIf="loading">Buscando...</div>
   <div *ngIf="error" class="error">{{ error }}</div>
 

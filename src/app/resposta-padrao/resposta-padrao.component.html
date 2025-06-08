@@ -60,7 +60,10 @@
     Nenhuma resposta encontrada com o termo "{{filtroGeral}}".
   </div>
 
-
+  <div *ngIf="textoCopiadoDoModal" class="editable-text-section">
+    <p>Resposta para edição:</p>
+    <app-editable-text-display [textoParaExibir]="textoCopiadoDoModal"></app-editable-text-display>
+  </div>
 
   <div class="form-section">
     <h2>{{ editIndex === null ? 'Adicionar Nova Resposta' : 'Editar Resposta' }}</h2>

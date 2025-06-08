@@ -11,6 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { RespostaCompletaModalComponent } from '../resposta-completa-modal/resposta-completa-modal.component';
+import { EditableTextDisplayComponent } from '../editable-text-display/editable-text-display.component'; // Importar o novo componente
 
 
 // MatTableDataSource might still be used for filtering logic even without mat-table, so let's keep its import for now if it's used in the class.
@@ -30,12 +31,15 @@ import { FirestoreRespostaService, Resposta } from '../services/firestore-respos
     MatIconModule,
     MatProgressSpinnerModule,
     MatDialogModule,
-    RespostaCompletaModalComponent // Adicionado aqui pois será usado no template ou aberto programaticamente,
+    RespostaCompletaModalComponent, // Adicionado aqui pois será usado no template ou aberto programaticamente,
+    EditableTextDisplayComponent // Adicionar o novo componente aos imports
   ],
   templateUrl: './resposta-padrao.component.html',
   styleUrls: ['./resposta-padrao.component.scss']
 })
 export class RespostaPadraoComponent implements OnInit, OnDestroy {
+  textoCopiadoDoModal: string = ''; // Nova propriedade para armazenar o texto do modal
+
   allRespostas: Resposta[] = [];
   respostasFiltradas: Resposta[] = []; // Para o ngFor no HTML
 
@@ -82,12 +86,18 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
 
   // Método para abrir o modal de resposta completa
   abrirModalRespostaCompleta(resposta: string): void {
-    this.dialog.open(RespostaCompletaModalComponent, {
+    const dialogRef = this.dialog.open(RespostaCompletaModalComponent, {
       width: '80vw', // Usar viewport width para melhor responsividade
       maxWidth: '700px',
       maxHeight: '80vh',
       data: { textoCompleto: resposta },
       autoFocus: false // Para evitar foco automático em elementos dentro do modal se não desejado
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.textoCopiadoDoModal = result;
+      }
     });
   }
 

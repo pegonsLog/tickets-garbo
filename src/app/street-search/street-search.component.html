@@ -1,89 +1,126 @@
 <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap" rel="stylesheet">
 <style>
-  body, .street-search-container {
+  body,
+  .street-search-container {
     font-family: 'Montserrat', sans-serif;
   }
-  .results-table th, .results-table td {
+
+  .results-table th,
+  .results-table td {
     padding: 4px 8px;
     text-align: left;
     font-size: 0.93rem;
   }
+
   .results-table td.mensagem-cell {
     font-size: calc(0.93rem - 2px);
   }
-  .results-table th:nth-child(4), .results-table td:nth-child(4) {
+
+  .results-table th:nth-child(4),
+  .results-table td:nth-child(4) {
     width: 1%;
     white-space: nowrap;
   }
-  .results-table th:nth-child(1), .results-table td:nth-child(1) {
+
+  .results-table th:nth-child(1),
+  .results-table td:nth-child(1) {
     width: 1%;
     white-space: nowrap;
   }
-  .results-table th:nth-child(2), .results-table td:nth-child(2) {
+
+  .results-table th:nth-child(2),
+  .results-table td:nth-child(2) {
     width: 1%;
     white-space: nowrap;
   }
-  .results-table th:nth-child(5), .results-table td:nth-child(5) {
+
+  .results-table th:nth-child(5),
+  .results-table td:nth-child(5) {
     width: 60px;
     max-width: 60px;
     text-align: center;
   }
-  .results-table th:nth-child(6), .results-table td:nth-child(6),
-  .results-table th:nth-child(7), .results-table td:nth-child(7),
-  .results-table th:nth-child(8), .results-table td:nth-child(8) {
+
+  .results-table th:nth-child(6),
+  .results-table td:nth-child(6),
+  .results-table th:nth-child(7),
+  .results-table td:nth-child(7),
+  .results-table th:nth-child(8),
+  .results-table td:nth-child(8) {
     width: 320px;
     max-width: 320px;
     word-break: break-word;
   }
+
   .results-table tbody tr:not(:last-child) td {
     border-bottom: 1px solid #7a7878;
     padding-top: 10px;
     padding-bottom: 10px;
   }
+
   .results-table tbody tr:first-child td {
     padding-top: 5px;
   }
+
   .status-encerrada {
     color: #f80000;
   }
+
   .numero-match {
     color: #009900;
     font-weight: bold;
   }
-  input::placeholder, select, option {
+
+  input::placeholder,
+  select,
+  option {
     font-family: 'Montserrat', sans-serif;
     letter-spacing: 0.5px;
     color: #757575;
   }
+
   input::-webkit-input-placeholder {
     font-family: 'Montserrat', sans-serif;
   }
+
   input:-ms-input-placeholder {
     font-family: 'Montserrat', sans-serif;
   }
+
   input::-ms-input-placeholder {
     font-family: 'Montserrat', sans-serif;
   }
 </style>
-<div style="background: #e3f0fa; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); padding: 20px 10px; margin: 15px 10px 10px 10px; width: auto; align-self: flex-start;">
-  <h1 style="margin: 0; text-align: center; font-size: 1.5rem; letter-spacing: 1px; font-family: 'Montserrat', sans-serif; color: #1a237e;">PESQUISA DE TICKETS DO MESMO LOCAL</h1>
+<div
+  style="background: #e3f0fa; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); padding: 20px 10px; margin: 15px 10px 10px 10px; width: auto; align-self: flex-start;">
+  <h1
+    style="margin: 0; text-align: center; font-size: 1.5rem; letter-spacing: 1px; font-family: 'Montserrat', sans-serif; color: #1a237e;">
+    PESQUISA DE TICKETS DO MESMO LOCAL</h1>
 </div>
-<div class="street-search-container" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; min-height: 100vh;">
+<div class="street-search-container"
+  style="display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; min-height: 100vh;">
   <h2 style="margin: 0 0 16px 0; white-space: nowrap; text-align: left;">Buscar local</h2>
-  <div style="display: flex; flex-direction: row; align-items: center; gap: 8px; margin-bottom: 24px;">
-    <input [(ngModel)]="streetName" placeholder="Digite o nome da rua" style="width: 600px; border: 1px solid #ccc; border-radius: 4px" />
-    <input [(ngModel)]="streetNumber" placeholder="Número" style="width: 100px; border: 1px solid #ccc; border-radius: 4px" />
+  <div style="display: flex; flex-direction: row; align-items: center; gap: 8px; margin-bottom: 10px;">
+    <input [(ngModel)]="streetName" placeholder="Digite o nome da rua"
+      style="width: 600px; border: 1px solid #ccc; border-radius: 4px" />
+    <input [(ngModel)]="streetNumber" placeholder="Número"
+      style="width: 100px; border: 1px solid #ccc; border-radius: 4px" />
     <select [(ngModel)]="statusFilter"
-  style="width: 130px; height: 38px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-size: 1rem; font-family: 'Montserrat', sans-serif; color: #757575; box-sizing: border-box;">
-  <option value="TODAS">Todas</option>
-  <option value="ABERTA">Aberta</option>
-  <option value="ENCERRADA">Encerrada</option>
-</select>
+      style="width: 130px; height: 38px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-size: 1rem; font-family: 'Montserrat', sans-serif; color: #757575; box-sizing: border-box;">
+      <option value="TODAS">Todas</option>
+      <option value="ABERTA">Aberta</option>
+      <option value="ENCERRADA">Encerrada</option>
+    </select>
     <button (click)="searchStreet()" [disabled]="loading || !streetName">Buscar</button>
     <button (click)="searchBySolicitante()">Por solicitante</button>
-    <button (click)="navigateToRespostaPadrao()" style="margin-left: 10px;">Respostas Padrão</button> <!-- Added navigation button -->
+    <button (click)="navigateToRespostaPadrao()" style="margin-left: 10px;">Respostas Padrão</button>
+    <!-- Added navigation button -->
   </div>
 
+  <div *ngIf="textoParaEditar !== null" class="editable-text-section" style="margin-top: 10px; width: 100%;">
+    <p>Resposta para Edição:</p>
+    <app-editable-text-display [textoParaExibir]="textoParaEditar"></app-editable-text-display>
+  </div>
 
   <div *ngIf="loading">Buscando...</div>
   <div *ngIf="error" class="error">{{ error }}</div>
@@ -110,13 +147,17 @@
           <td>{{ result.DATA_ENTRADA }}</td>
           <td [ngClass]="{'status-encerrada': result.STATUS === 'ENCERRADA'}">{{ result.STATUS }}</td>
           <td style="width: 250px; max-width: 250px;">{{ result.RUA }}</td>
-          <td [ngClass]="{'numero-match': result.NUMERO == streetNumber}" style="width: 80px; max-width: 80px;">{{ result.NUMERO }}</td>
+          <td [ngClass]="{'numero-match': result.NUMERO == streetNumber}" style="width: 80px; max-width: 80px;">{{
+            result.NUMERO }}</td>
           <td style="width: 260px; max-width: 260px; word-break: break-word;">{{ result.DESCRICAO }}</td>
           <td style="width: 260px; max-width: 260px; word-break: break-word;">{{ result.RESUMO || 'Resumindo...' }}</td>
-          <td class="mensagem-cell" style="width: 260px; max-width: 260px; word-break: break-word;">{{ result.STATUS === 'ABERTA' ? 'AGUARDANDO RESPOSTA' : result.MENSAGEM }}</td>
-          <td><button (click)="abrirEditorResposta(result)" style="font-size: 14px; height: 60px;">Editar Resposta</button></td>
+          <td class="mensagem-cell" style="width: 260px; max-width: 260px; word-break: break-word;">{{ result.STATUS ===
+            'ABERTA' ? 'AGUARDANDO RESPOSTA' : result.MENSAGEM }}</td>
+          <td><button (click)="abrirEditorResposta(result)" style="font-size: 14px; height: 60px;">Editar
+              Resposta</button></td>
         </tr>
       </tbody>
     </table>
   </div>
+
 </div>

@@ -19,4 +19,8 @@ export class RespostaCompletaModalComponent {
   fechar(): void {
     this.dialogRef.close();
   }
+
+  copiarEFechar(): void {
+    this.dialogRef.close(this.data.textoCompleto);
+  }
 }

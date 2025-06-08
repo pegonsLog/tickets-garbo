@@ -1,13 +1,14 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class GroqService {
   private apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
-  private apiKey = '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';
+  private apiKey = environment.groqApiKey;
 
   constructor(private http: HttpClient) {}
 
