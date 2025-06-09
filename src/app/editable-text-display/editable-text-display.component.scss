@@ -5,8 +5,11 @@
 
 textarea {
   width: 100%;
+  padding: 20px;
   box-sizing: border-box; /* Garante que padding e border não aumentem a largura total */
   resize: none; /* Impede redimensionamento manual que pode conflitar */
+  height: auto; /* Garante que a altura não seja fixada externamente */
+  overflow-y: hidden; /* Esconde a barra de rolagem vertical, pois a altura deve se ajustar */
 }
 
 .styled-copy-button {
