@@ -1,22 +1,22 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, AfterViewInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { Clipboard, ClipboardModule } from '@angular/cdk/clipboard';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatInputModule } from '@angular/material/input';
-import { MatFormFieldModule } from '@angular/material/form-field'; // Ensure present
-import { MatButtonModule } from '@angular/material/button'; // Ensure present
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatTableModule } from '@angular/material/table';
+import { MatPaginatorModule, MatPaginator } from '@angular/material/paginator';
+import { MatTableDataSource } from '@angular/material/table';
 import { RespostaCompletaModalComponent } from '../resposta-completa-modal/resposta-completa-modal.component';
-import { EditableTextDisplayComponent } from '../editable-text-display/editable-text-display.component'; // Importar o novo componente
+import { EditableTextDisplayComponent } from '../editable-text-display/editable-text-display.component';
 
-
-// MatTableDataSource might still be used for filtering logic even without mat-table, so let's keep its import for now if it's used in the class.
-// However, MatTableModule itself is removed.
-import { FirestoreRespostaService, Resposta } from '../services/firestore-resposta.service'; // Import service and interface from Firestore
+import { FirestoreRespostaService, Resposta } from '../services/firestore-resposta.service';
 
 @Component({
   selector: 'app-resposta-padrao',
@@ -26,27 +26,45 @@ import { FirestoreRespostaService, Resposta } from '../services/firestore-respos
     FormsModule,
     ClipboardModule,
     MatInputModule,
-    MatFormFieldModule, // Ensure present
-    MatButtonModule,    // Ensure present
+    MatFormFieldModule,
+    MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatDialogModule,
-    RespostaCompletaModalComponent, // Adicionado aqui pois será usado no template ou aberto programaticamente,
-    EditableTextDisplayComponent // Adicionar o novo componente aos imports
+    MatTableModule,
+    MatPaginatorModule,
+    RespostaCompletaModalComponent,
+    EditableTextDisplayComponent
   ],
   templateUrl: './resposta-padrao.component.html',
   styleUrls: ['./resposta-padrao.component.scss']
 })
-export class RespostaPadraoComponent implements OnInit, OnDestroy {
-  textoCopiadoDoModal: string = ''; // Nova propriedade para armazenar o texto do modal
+export class RespostaPadraoComponent implements OnInit, OnDestroy, AfterViewInit {
+  textoCopiadoDoModal: string = '';
 
   allRespostas: Resposta[] = [];
-  respostasFiltradas: Resposta[] = []; // Para o ngFor no HTML
+  respostasFiltradas: Resposta[] = [];
+  dataSource = new MatTableDataSource<Resposta>([]);
+  
+  @ViewChild(MatPaginator) paginator!: MatPaginator;
+  
+  // Colunas para exibição na mat-table
+  displayedColumns: string[] = ['assunto', 'resposta', 'criador', 'acoes'];
+  
+  // Opções de paginação
+  pageSizeOptions = [5, 10, 25, 50];
+  pageSize = 5; // Alterado para 5 registros por página como padrão
 
   assuntoAtual: string = '';
   respostaAtual: string = '';
-  criadorAtual: string = ''; // Novo campo para o formulário
+  criadorAtual: string = '';
+  
+  // Filtros
   filtroGeral: string = '';
+  filtroAssunto: string = '';
+  filtroResposta: string = '';
+  filtroCriador: string = '';
+  filtroPalavrasChave: string = '';
   
   editIndex: number | null = null; // Índice da resposta em edição (ou null se nova)
   idRespostaEmEdicao: string | null = null; // ID da resposta em edição (Firestore ID é string)
@@ -70,10 +88,7 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
     if (idParam) { // idParam é string | null. Se não for null, é o ID string.
       this.carregarRespostaParaEdicao(idParam);
     } else {
-      // Se não há ID, carrega todas as respostas para referência (se necessário para alguma lógica)
-      // ou simplesmente prepara para uma nova entrada.
-      // A lógica atual de carregarRespostas() já popula allRespostas, o que pode ser útil
-      // para evitar duplicidade de assuntos, por exemplo, mesmo ao criar um novo.
+      // Se não há ID, carrega todas as respostas para referência
       this.carregarRespostas(); 
     }
   }
@@ -82,6 +97,26 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
     if (this.dataSubscription) {
       this.dataSubscription.unsubscribe();
     }
+  }
+  
+  ngAfterViewInit(): void {
+    // Conecta o paginador ao dataSource com um timeout para evitar o erro ExpressionChangedAfterItHasBeenChecked
+    setTimeout(() => {
+      this.dataSource.paginator = this.paginator;
+      
+      // Força o tamanho da página para 5 após a inicialização do paginator
+      if (this.paginator) {
+        this.paginator.pageSize = this.pageSize;
+        this.paginator.pageIndex = 0;
+      }
+    });
+  }
+  
+  // Método para tratar eventos de paginação
+  onPageChange(event: any): void {
+    console.log('Página alterada:', event);
+    // Este evento é acionado quando o usuário muda de página ou altera o tamanho da página
+    // O dataSource com o paginator já deve atualizar automaticamente a visualização
   }
 
   // Método para abrir o modal de resposta completa
@@ -106,30 +141,95 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
     this.error = null;
     this.dataSubscription = this.firestoreRespostaService.getRespostas().subscribe({
       next: (respostasAtualizadas: Resposta[]) => {
-        this.allRespostas = [...respostasAtualizadas]; // Cria uma cópia para evitar mutação do cache do serviço
-        this.aplicarFiltros(); // Popula respostasFiltradas
+        this.allRespostas = respostasAtualizadas;
+        // Atualiza as respostasFiltradas e o dataSource
+        this.respostasFiltradas = respostasAtualizadas;
+        
+        // Inicializa o dataSource com os dados e configurações de página
+        this.dataSource = new MatTableDataSource<Resposta>(respostasAtualizadas);
+        
+        // Reconecta o paginador se ele já estiver inicializado
+        if (this.paginator) {
+          this.dataSource.paginator = this.paginator;
+          this.paginator.pageSize = this.pageSize;
+          this.paginator.pageIndex = 0;
+        }
+        
+        // Aplica os filtros se necessário
+        this.aplicarFiltros();
+        
         this.loading = false;
       },
       error: (err: any) => {
         console.error('Erro ao carregar respostas:', err);
-        this.error = 'Falha ao carregar respostas. Verifique sua conexão ou a API Key.';
+        this.error = 'Falha ao carregar respostas. Por favor, tente novamente.';
         this.loading = false;
       }
     });
   }
 
   aplicarFiltros(): void {
-    if (!this.filtroGeral.trim()) {
-      this.respostasFiltradas = [...this.allRespostas];
-    } else {
-      const termo = this.filtroGeral.toLowerCase().trim();
-      this.respostasFiltradas = this.allRespostas.filter(r => {
-        const termoLower = termo.toLowerCase(); // termo já é lowercase e trimmed
-        const assuntoMatch = r.assunto && typeof r.assunto === 'string' && r.assunto.toLowerCase().includes(termoLower);
-        const respostaMatch = r.resposta && typeof r.resposta === 'string' && r.resposta.toLowerCase().includes(termoLower);
-        const criadorMatch = r.criador && typeof r.criador === 'string' && r.criador.toLowerCase().includes(termoLower);
-        return !!(assuntoMatch || respostaMatch || criadorMatch);
+    // Limpa qualquer mensagem de erro mostrada anteriormente
+    this.error = null;
+    
+    // Começamos com todas as respostas
+    let resultados = [...this.allRespostas];
+
+    // Função auxiliar para verificar correspondência em todos os campos
+    const verificarCorrespondenciaEmTodosCampos = (resposta: Resposta, termo: string): boolean => {
+      const assuntoMatch = resposta.assunto && typeof resposta.assunto === 'string' && resposta.assunto.toLowerCase().includes(termo);
+      const respostaMatch = resposta.resposta && typeof resposta.resposta === 'string' && resposta.resposta.toLowerCase().includes(termo);
+      const criadorMatch = resposta.criador && typeof resposta.criador === 'string' && resposta.criador.toLowerCase().includes(termo);
+      return !!(assuntoMatch || respostaMatch || criadorMatch);
+    };
+
+    // Filtro geral (pesquisa em todos os campos)
+    if (this.filtroGeral.trim()) {
+      const termoGeral = this.filtroGeral.toLowerCase().trim();
+      resultados = resultados.filter(r => verificarCorrespondenciaEmTodosCampos(r, termoGeral));
+    }
+
+    // Filtro por assunto (agora também busca em todos os campos)
+    if (this.filtroAssunto.trim()) {
+      const termoAssunto = this.filtroAssunto.toLowerCase().trim();
+      resultados = resultados.filter(r => verificarCorrespondenciaEmTodosCampos(r, termoAssunto));
+    }
+
+    // Filtro por texto da resposta (agora também busca em todos os campos)
+    if (this.filtroResposta.trim()) {
+      const termoResposta = this.filtroResposta.toLowerCase().trim();
+      resultados = resultados.filter(r => verificarCorrespondenciaEmTodosCampos(r, termoResposta));
+    }
+
+    // Filtro por criador (agora também busca em todos os campos)
+    if (this.filtroCriador.trim()) {
+      const termoCriador = this.filtroCriador.toLowerCase().trim();
+      resultados = resultados.filter(r => verificarCorrespondenciaEmTodosCampos(r, termoCriador));
+    }
+
+    // Filtro por palavras-chave (pesquisa múltiplas palavras em todos os campos)
+    if (this.filtroPalavrasChave.trim()) {
+      const palavrasChave = this.filtroPalavrasChave.toLowerCase().trim().split(/\s+/);
+      resultados = resultados.filter(resposta => {
+        // Texto combinado de todos os campos para facilitar a pesquisa
+        const textoCompleto = [
+          resposta.assunto || '',
+          resposta.resposta || '',
+          resposta.criador || ''
+        ].join(' ').toLowerCase();
+        
+        // Todas as palavras-chave devem estar presentes
+        return palavrasChave.every(palavra => textoCompleto.includes(palavra));
       });
+    }
+
+    // Atualiza a lista de respostas filtradas e o dataSource para a tabela
+    this.respostasFiltradas = resultados;
+    this.dataSource.data = resultados;
+    
+    // Garante que o paginador resete para a primeira página após a filtragem
+    if (this.dataSource.paginator) {
+      this.dataSource.paginator.firstPage();
     }
   };
 
@@ -200,6 +300,15 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
     this.error = null;
   }
 
+  limparFiltros(): void {
+    this.filtroGeral = '';
+    this.filtroAssunto = '';
+    this.filtroResposta = '';
+    this.filtroCriador = '';
+    this.filtroPalavrasChave = '';
+    this.aplicarFiltros();
+  }
+
   copiarResposta(texto: string): void {
     if (this.clipboard.copy(texto)) {
       alert('Resposta copiada para a área de transferência!');
@@ -221,6 +330,9 @@ export class RespostaPadraoComponent implements OnInit, OnDestroy {
     // O 'index' aqui pode ser do 'respostasFiltradas'. Para robustez, usamos o ID.
     if (confirm(`Tem certeza que deseja excluir a resposta sobre "${resp.assunto}"?`)) {
       this.loading = true;
+      // Limpa qualquer mensagem de erro anterior
+      this.error = null;
+      
       this.firestoreRespostaService.deleteResposta(resp.id).subscribe({ // resp.id is now string
         next: () => {
           this.allRespostas = this.allRespostas.filter(r => r.id !== resp.id);
