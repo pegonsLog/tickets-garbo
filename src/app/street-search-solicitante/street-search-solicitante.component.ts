@@ -2,7 +2,6 @@ import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { GroqService } from '../street-search/groq.service';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { StreetSearchResult } from '../street-search/street-search.component.model';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -38,7 +37,6 @@ export class StreetSearchSolicitanteComponent {
   textoParaEditar: string | null = null;
 
   constructor(
-    private groqService: GroqService,
     private http: HttpClient,
     private router: Router,
   ) {}
@@ -133,24 +131,6 @@ export class StreetSearchSolicitanteComponent {
       });
       if (this.results.length === 0) {
         this.error = 'Nenhum registro encontrado para os filtros informados.';
-      } else {
-        // Para cada resultado, resumir o campo DESCRICAO usando a API Groq com delay
-        this.results.forEach((result, index) => {
-          setTimeout(() => {
-            if (result.DESCRICAO) {
-              this.groqService.resumirDescricao(result.DESCRICAO).subscribe({
-                next: (response) => {
-                  result.RESUMO = response.choices?.[0]?.message?.content || '';
-                },
-                error: (err) => {
-                  result.RESUMO = 'Erro ao resumir: ' + (err?.message || '');
-                }
-              });
-            } else {
-              result.RESUMO = 'Descrição não informada';
-            }
-          }, index * 1000); // Atraso de 1000ms multiplicado pelo índice
-        });
       }
     } catch (err: any) {
       this.error = err.message || 'Erro ao buscar dados.';

@@ -102,7 +102,6 @@
           <th style="width: 250px; max-width: 250px; text-align: left;">Rua</th>
           <th style="width: 100px; max-width: 80px;">Número</th>
           <th style="width: 260px; max-width: 260px; word-break: break-word;">Descrição</th>
-          <th style="width: 260px; max-width: 260px; word-break: break-word;">Resumo do que está sendo solicitado</th>
           <th style="width: 260px; max-width: 260px; word-break: break-word;">Resposta</th>
           <th></th>
         </tr>
@@ -115,7 +114,6 @@
           <td [ngClass]="{'status-encerrada': result.STATUS === 'ENCERRADA'}">{{ result.STATUS }}</td>
           <td style="width: 250px; max-width: 250px; text-align: left;">{{ result.RUA }}</td>
           <td style="width: 260px; max-width: 260px; word-break: break-word;">{{ result.DESCRICAO }}</td>
-          <td style="width: 260px; max-width: 260px; word-break: break-word;">{{ result.RESUMO || 'Resumindo...' }}</td>
           <td class="mensagem-cell" style="width: 260px; max-width: 260px; word-break: break-word;">{{ result.STATUS === 'ABERTA' ? 'AGUARDANDO RESPOSTA' : result.MENSAGEM }}</td>
           <td><button (click)="abrirEditorResposta(result)" style="font-size: 14px; height: 60px;">Editar Resposta</button></td>
         </tr>

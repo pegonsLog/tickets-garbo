@@ -7,5 +7,4 @@ export interface StreetSearchResult {
   DESCRICAO: string;
   ORIGEM?: string;
   MENSAGEM?: string;
-  RESUMO?: string;
 }

@@ -1,0 +1,25 @@
+.sheet-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.9rem;
+
+  th,
+  td {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    white-space: nowrap;
+  }
+
+  th {
+    background: #1a237e;
+    color: #fff;
+    position: sticky;
+    top: 0;
+  }
+
+  tbody tr:hover {
+    background: #f5f7ff;
+  }
+}

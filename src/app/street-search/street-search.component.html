@@ -115,6 +115,7 @@
     <button (click)="searchBySolicitante()">Por solicitante</button>
     <button (click)="navigateToRespostaPadrao()" style="margin-left: 10px;">Respostas Padrão</button>
     <!-- Added navigation button -->
+    <button (click)="navigateToPlanilha()">Ver Planilha</button>
   </div>
 
   <div *ngIf="textoParaEditar !== null" class="editable-text-section" style="margin-top: 10px; width: 100%;">
@@ -136,7 +137,6 @@
           <th style="width: 250px; max-width: 250px; text-align: left;">Rua</th>
           <th style="width: 100px; max-width: 80px;">Número</th>
           <th style="width: 260px; max-width: 260px;">Descrição</th>
-          <th style="width: 260px; max-width: 260px;">Resumo do que está sendo solicitado</th>
           <th style="width: 260px; max-width: 260px;">Resposta</th>
         </tr>
       </thead>
@@ -150,7 +150,6 @@
           <td [ngClass]="{'numero-match': result.NUMERO == streetNumber}" style="width: 80px; max-width: 80px;">{{
             result.NUMERO }}</td>
           <td style="width: 260px; max-width: 260px; word-break: break-word;">{{ result.DESCRICAO }}</td>
-          <td style="width: 260px; max-width: 260px; word-break: break-word;">{{ result.RESUMO || 'Resumindo...' }}</td>
           <td class="mensagem-cell" style="width: 260px; max-width: 260px; word-break: break-word;">{{ result.STATUS ===
             'ABERTA' ? 'AGUARDANDO RESPOSTA' : result.MENSAGEM }}</td>
           <td><button (click)="abrirEditorResposta(result)" style="font-size: 14px; height: 60px;">Editar
