@@ -1,0 +1,255 @@
+<div class="page">
+  <!-- Header -->
+  <header class="hero">
+    <div class="hero-left">
+      <div class="hero-badge"><span class="material-icons">confirmation_number</span></div>
+      <div>
+        <h1>Tickets Garbo</h1>
+        <p>Acompanhamento de demandas e solicitações</p>
+      </div>
+    </div>
+    <div class="hero-actions">
+      <button class="btn-hero" (click)="abrirRelatorio()" [disabled]="loading || totalCount === 0">
+        <span class="material-icons">description</span>
+        Gerar relatório
+      </button>
+      <button class="btn-hero" (click)="carregarTickets()" [disabled]="loading">
+        <span class="material-icons" [class.spin]="loading">refresh</span>
+        Atualizar
+      </button>
+    </div>
+  </header>
+
+  <!-- Stats -->
+  <section class="stats" *ngIf="!error">
+    <div class="stat-card">
+      <span class="stat-label">Exibindo</span>
+      <span class="stat-value">{{ filteredCount }}</span>
+      <span class="stat-sub">de {{ totalCount }} no total</span>
+    </div>
+    <div class="stat-card open">
+      <span class="stat-label">Abertas</span>
+      <span class="stat-value">{{ filteredAbertasCount }}</span>
+      <span class="stat-sub">de {{ abertasCount }} no total</span>
+    </div>
+    <div class="stat-card closed">
+      <span class="stat-label">Encerradas</span>
+      <span class="stat-value">{{ filteredEncerradasCount }}</span>
+      <span class="stat-sub">de {{ encerradasCount }} no total</span>
+    </div>
+    <div class="stat-card muted">
+      <span class="stat-label">Filtros ativos</span>
+      <span class="stat-value">{{ hasActiveFilters ? 'Sim' : 'Não' }}</span>
+      <span class="stat-sub">{{ hasActiveFilters ? 'resultado filtrado' : 'mostrando tudo' }}</span>
+    </div>
+  </section>
+
+  <!-- Filtros -->
+  <section class="filter-card">
+    <div class="field">
+      <span class="material-icons">search</span>
+      <input [(ngModel)]="numeroFilter" (ngModelChange)="aplicarFiltros()" placeholder="Buscar por número" />
+    </div>
+
+    <div class="field">
+      <span class="material-icons">flag</span>
+      <select [(ngModel)]="statusFilter" (ngModelChange)="aplicarFiltros()">
+        <option value="TODOS">Todos os status</option>
+        <option *ngFor="let status of statusOptions" [value]="status">{{ status }}</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <span class="material-icons">person</span>
+      <select [(ngModel)]="responsavelFilter" (ngModelChange)="aplicarFiltros()">
+        <option value="TODOS">Todos os responsáveis</option>
+        <option *ngFor="let responsavel of responsavelOptions" [value]="responsavel">{{ responsavel }}</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <span class="material-icons">campaign</span>
+      <select [(ngModel)]="origemFilter" (ngModelChange)="aplicarFiltros()">
+        <option value="TODOS">Todas as origens</option>
+        <option *ngFor="let origem of origemOptions" [value]="origem">{{ origem }}</option>
+      </select>
+    </div>
+
+    <div class="field period">
+      <span class="material-icons">event</span>
+      <input type="date" [(ngModel)]="dataInicioFilter" (ngModelChange)="aplicarFiltros()"
+        title="Data de entrada — início" aria-label="Período início" />
+      <span class="period-sep">até</span>
+      <input type="date" [(ngModel)]="dataFimFilter" (ngModelChange)="aplicarFiltros()"
+        title="Data de entrada — fim" aria-label="Período fim" />
+    </div>
+
+    <button class="btn-ghost" (click)="limparFiltros()" [disabled]="!hasActiveFilters">
+      <span class="material-icons">filter_alt_off</span>
+      Limpar
+    </button>
+  </section>
+
+  <!-- Estados -->
+  <div class="state loading" *ngIf="loading">
+    <span class="spinner"></span>
+    <p>Carregando tickets...</p>
+  </div>
+
+  <div class="state error" *ngIf="error && !loading">
+    <span class="material-icons">error_outline</span>
+    <p>{{ error }}</p>
+  </div>
+
+  <div class="state empty" *ngIf="!loading && !error && filteredTickets.length === 0">
+    <span class="material-icons">inbox</span>
+    <p>Nenhum ticket encontrado para os filtros informados.</p>
+  </div>
+
+  <!-- Tabela -->
+  <section class="table-wrap" *ngIf="!loading && !error && filteredTickets.length > 0">
+    <!-- Barra de rolagem horizontal no topo -->
+    <div class="top-scroll" #topScroll (scroll)="syncScroll(topScroll, tableScroll)">
+      <div class="top-scroll-spacer" [style.width.px]="contentWidth"></div>
+    </div>
+
+    <div class="table-scroll" #tableScroll (scroll)="syncScroll(tableScroll, topScroll)">
+    <table #tableEl class="ticket-table">
+      <thead>
+        <tr>
+          <th class="col-num">Número</th>
+          <th>Status</th>
+          <th>Responsável</th>
+          <th>Origem</th>
+          <th>Data Entrada</th>
+          <th>Assunto</th>
+          <th>Local</th>
+          <th class="col-action"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <ng-container *ngFor="let ticket of filteredTickets; let i = index">
+          <tr class="row" [class.expanded]="expandedIndex === i" (click)="toggleExpand(i)">
+            <td class="col-num">{{ ticket['NUMERO'] || '—' }}</td>
+            <td><span [class]="statusClass(ticket['STATUS'])">{{ ticket['STATUS'] || '—' }}</span></td>
+            <td>
+              <div class="person">
+                <span class="avatar">{{ iniciais(ticket['RESPONSAVEL']) }}</span>
+                <span class="person-name">{{ ticket['RESPONSAVEL'] || '—' }}</span>
+              </div>
+            </td>
+            <td>{{ ticket['ORIGEM'] || '—' }}</td>
+            <td>{{ ticket['DATA_ENTRADA'] || '—' }}</td>
+            <td class="cell-clamp">{{ ticket['ASSUNTO'] || '—' }}</td>
+            <td class="cell-clamp">{{ ticket['RUA'] ? (ticket['RUA'] + (ticket['NUM'] ? ', ' + ticket['NUM'] : '')) : '—' }}</td>
+            <td class="col-action">
+              <span class="material-icons chevron" [class.open]="expandedIndex === i">expand_more</span>
+            </td>
+          </tr>
+          <tr class="detail-row" *ngIf="expandedIndex === i">
+            <td colspan="8">
+              <div class="detail">
+                <div class="detail-grid">
+                  <div class="detail-item"><span class="k">Solicitante</span><span class="v">{{ ticket['SOLICITANTE'] || '—' }}</span></div>
+                  <div class="detail-item"><span class="k">Bairro</span><span class="v">{{ ticket['BAIRRO'] || '—' }}</span></div>
+                  <div class="detail-item"><span class="k">Regional</span><span class="v">{{ ticket['REGIONAL'] || '—' }}</span></div>
+                  <div class="detail-item"><span class="k">Classe</span><span class="v">{{ ticket['CLASSE'] || '—' }}</span></div>
+                  <div class="detail-item"><span class="k">Data criação</span><span class="v">{{ ticket['DATA_CRIAÇÃO'] || '—' }}</span></div>
+                  <div class="detail-item"><span class="k">Data encerrada</span><span class="v">{{ ticket['DATA_ENCERRADA'] || '—' }}</span></div>
+                </div>
+                <div class="detail-block" *ngIf="ticket['DESCRICAO']">
+                  <span class="k">Descrição</span>
+                  <p class="v">{{ ticket['DESCRICAO'] }}</p>
+                </div>
+                <div class="detail-block" *ngIf="ticket['RESPOSTA']">
+                  <span class="k">Resposta</span>
+                  <p class="v">{{ ticket['RESPOSTA'] }}</p>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+    </div>
+  </section>
+</div>
+
+<!-- ===== Modal de relatório ===== -->
+<div class="modal-backdrop" *ngIf="reportModalOpen" (click)="fecharRelatorio()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-head">
+      <h2><span class="material-icons">description</span> Gerar relatório</h2>
+      <button class="icon-btn" (click)="fecharRelatorio()" aria-label="Fechar">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-grid">
+        <label class="form-field">
+          <span class="form-label">Período — início</span>
+          <input type="date" [(ngModel)]="repInicio" />
+        </label>
+        <label class="form-field">
+          <span class="form-label">Período — fim</span>
+          <input type="date" [(ngModel)]="repFim" />
+        </label>
+
+        <label class="form-field">
+          <span class="form-label">Responsável</span>
+          <select [(ngModel)]="repResponsavel">
+            <option value="TODOS">Todos os responsáveis</option>
+            <option *ngFor="let r of responsavelOptions" [value]="r">{{ r }}</option>
+          </select>
+        </label>
+
+        <label class="form-field">
+          <span class="form-label">Status</span>
+          <select [(ngModel)]="repStatus">
+            <option value="TODOS">Todos os status</option>
+            <option *ngFor="let s of statusOptions" [value]="s">{{ s }}</option>
+          </select>
+        </label>
+
+        <label class="form-field">
+          <span class="form-label">Origem</span>
+          <select [(ngModel)]="repOrigem">
+            <option value="TODOS">Todas as origens</option>
+            <option *ngFor="let o of origemOptions" [value]="o">{{ o }}</option>
+          </select>
+        </label>
+
+        <label class="form-field">
+          <span class="form-label">Qtd. de registros</span>
+          <input type="number" min="1" [(ngModel)]="repQtd" placeholder="Ex.: 50" />
+        </label>
+
+        <label class="form-field">
+          <span class="form-label">Ordem</span>
+          <select [(ngModel)]="repOrdem">
+            <option value="recentes">Das últimas para as primeiras</option>
+            <option value="antigas">Das primeiras para as últimas</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="modal-hint" *ngIf="reportRows">
+        <span class="material-icons">check_circle</span>
+        Relatório gerado com {{ reportRows.length }} registro(s). Use "Abrir PDF" para gerar a via do responsável.
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn-ghost" (click)="fecharRelatorio()">Cancelar</button>
+      <button class="btn-ghost" *ngIf="reportRows && reportRows.length > 0" (click)="gerarPdf()">
+        <span class="material-icons">picture_as_pdf</span> Abrir PDF
+      </button>
+      <button class="btn-primary" (click)="gerarRelatorio()">
+        <span class="material-icons">play_arrow</span> Gerar relatório
+      </button>
+    </div>
+  </div>
+</div>
+
+
