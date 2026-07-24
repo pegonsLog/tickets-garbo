@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { GoogleSheetsService, SheetData } from '../services/google-sheets.service';
 
 @Component({
@@ -23,11 +24,13 @@ export class TicketListComponent implements OnInit {
   statusOptions: string[] = [];
   responsavelOptions: string[] = [];
   origemOptions: string[] = [];
+  assuntoOptions: string[] = [];
 
   numeroFilter: string = '';
   statusFilter: string = 'TODOS';
   responsavelFilter: string = 'TODOS';
   origemFilter: string = 'TODOS';
+  assuntoFilter: string = '';
   dataInicioFilter: string = '';
   dataFimFilter: string = '';
 
@@ -44,6 +47,7 @@ export class TicketListComponent implements OnInit {
   repResponsavel: string = 'TODOS';
   repStatus: string = 'TODOS';
   repOrigem: string = 'TODOS';
+  repAssunto: string = '';
   repQtd: number | null = 200;
   repOrdem: 'recentes' | 'antigas' = 'recentes';
 
@@ -90,6 +94,7 @@ export class TicketListComponent implements OnInit {
         this.statusOptions = this.getValoresUnicos('STATUS');
         this.responsavelOptions = this.getValoresUnicos('RESPONSAVEL');
         this.origemOptions = this.getValoresUnicos('ORIGEM');
+        this.assuntoOptions = this.getValoresUnicos('ASSUNTO');
         this.aplicarFiltros();
         this.loading = false;
         this.updateContentWidth();
@@ -136,6 +141,7 @@ export class TicketListComponent implements OnInit {
 
   aplicarFiltros(): void {
     const numero = this.numeroFilter.trim().toLowerCase();
+    const assunto = this.assuntoFilter.trim().toLowerCase();
     // Campos de data (type=date) chegam como yyyy-mm-dd
     const inicioTs = this.dataInicioFilter ? this.parseDataToTs(this.dataInicioFilter) : null;
     const fimTs = this.dataFimFilter ? this.parseDataToTs(this.dataFimFilter) : null;
@@ -145,6 +151,7 @@ export class TicketListComponent implements OnInit {
       const statusMatch = this.statusFilter === 'TODOS' || row['STATUS'] === this.statusFilter;
       const responsavelMatch = this.responsavelFilter === 'TODOS' || row['RESPONSAVEL'] === this.responsavelFilter;
       const origemMatch = this.origemFilter === 'TODOS' || row['ORIGEM'] === this.origemFilter;
+      const assuntoMatch = !assunto || (row['ASSUNTO'] ?? '').toLowerCase().includes(assunto);
 
       let periodoMatch = true;
       if (inicioTs !== null || fimTs !== null) {
@@ -157,7 +164,7 @@ export class TicketListComponent implements OnInit {
         }
       }
 
-      return numeroMatch && statusMatch && responsavelMatch && origemMatch && periodoMatch;
+      return numeroMatch && statusMatch && responsavelMatch && origemMatch && assuntoMatch && periodoMatch;
     });
     this.expandedIndex = null;
     this.updateContentWidth();
@@ -168,6 +175,7 @@ export class TicketListComponent implements OnInit {
     this.statusFilter = 'TODOS';
     this.responsavelFilter = 'TODOS';
     this.origemFilter = 'TODOS';
+    this.assuntoFilter = '';
     this.dataInicioFilter = '';
     this.dataFimFilter = '';
     this.aplicarFiltros();
@@ -182,6 +190,7 @@ export class TicketListComponent implements OnInit {
       || this.statusFilter !== 'TODOS'
       || this.responsavelFilter !== 'TODOS'
       || this.origemFilter !== 'TODOS'
+      || this.assuntoFilter.trim() !== ''
       || this.dataInicioFilter !== ''
       || this.dataFimFilter !== '';
   }
@@ -238,6 +247,7 @@ export class TicketListComponent implements OnInit {
     this.repResponsavel = this.responsavelFilter;
     this.repStatus = this.statusFilter;
     this.repOrigem = this.origemFilter;
+    this.repAssunto = this.assuntoFilter;
     this.reportRows = null;
     this.reportGeneratedAt = null;
     this.reportModalOpen = true;
@@ -250,11 +260,13 @@ export class TicketListComponent implements OnInit {
   gerarRelatorio(): void {
     const inicioTs = this.repInicio ? this.parseDataToTs(this.repInicio) : null;
     const fimTs = this.repFim ? this.parseDataToTs(this.repFim) : null;
+    const assuntoRep = this.repAssunto.trim().toLowerCase();
 
     let rows = this.allTickets.filter(row => {
       const statusMatch = this.repStatus === 'TODOS' || row['STATUS'] === this.repStatus;
       const responsavelMatch = this.repResponsavel === 'TODOS' || row['RESPONSAVEL'] === this.repResponsavel;
       const origemMatch = this.repOrigem === 'TODOS' || row['ORIGEM'] === this.repOrigem;
+      const assuntoMatch = !assuntoRep || (row['ASSUNTO'] ?? '').toLowerCase().includes(assuntoRep);
 
       let periodoMatch = true;
       if (inicioTs !== null || fimTs !== null) {
@@ -266,7 +278,7 @@ export class TicketListComponent implements OnInit {
           if (fimTs !== null && dataTs > fimTs) periodoMatch = false;
         }
       }
-      return statusMatch && responsavelMatch && origemMatch && periodoMatch;
+      return statusMatch && responsavelMatch && origemMatch && assuntoMatch && periodoMatch;
     });
 
     // Ordena por DATA_ENTRADA conforme a ordem escolhida (linhas sem data vão para o fim)
@@ -310,6 +322,7 @@ export class TicketListComponent implements OnInit {
       `Responsável: ${this.repResponsavelLabel}`,
       `Período: ${this.repPeriodoLabel}`,
       `Status: ${this.repStatus === 'TODOS' ? 'Todos' : this.repStatus}    Origem: ${this.repOrigem === 'TODOS' ? 'Todas' : this.repOrigem}`,
+      `Assunto: ${this.repAssunto.trim() ? this.repAssunto : 'Todos'}`,
       `Registros: ${this.reportRows.length}    Gerado em: ${(this.reportGeneratedAt ?? new Date()).toLocaleString('pt-BR')}`
     ];
     let y = 30;
@@ -365,6 +378,40 @@ export class TicketListComponent implements OnInit {
     window.open(blobUrl, '_blank');
 
     // Fecha o modal após gerar o PDF
+    this.fecharRelatorio();
+  }
+
+  /** Exporta o relatório atual para um arquivo Excel (.xlsx). */
+  gerarExcel(): void {
+    if (!this.reportRows || this.reportRows.length === 0) return;
+
+    const dados = this.reportRows.map((t, i) => ({
+      '#': i + 1,
+      'Número': t['NUMERO'] || '',
+      'Status': t['STATUS'] || '',
+      'Responsável': t['RESPONSAVEL'] || '',
+      'Origem': t['ORIGEM'] || '',
+      'Solicitante': t['SOLICITANTE'] || '',
+      'Data Entrada': t['DATA_ENTRADA'] || '',
+      'Assunto': t['ASSUNTO'] || '',
+      'Classe': t['CLASSE'] || '',
+      'Rua': t['RUA'] || '',
+      'Número Local': t['NUM'] || '',
+      'Bairro': t['BAIRRO'] || '',
+      'Regional': t['REGIONAL'] || '',
+      'Descrição': t['DESCRICAO'] || '',
+      'Resposta': t['RESPOSTA'] || ''
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dados);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Tickets');
+
+    const dataStr = (this.reportGeneratedAt ?? new Date())
+      .toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `relatorio-tickets-${dataStr}.xlsx`);
+
+    // Fecha o modal após exportar
     this.fecharRelatorio();
   }
 

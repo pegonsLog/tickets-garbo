@@ -33,7 +33,8 @@
               "dompurify",
               "core-js",
               "raf",
-              "rgbcolor"
+              "rgbcolor",
+              "xlsx"
             ],
             "assets": [
               {

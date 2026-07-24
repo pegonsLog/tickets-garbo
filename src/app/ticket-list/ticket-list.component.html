@@ -75,6 +75,11 @@
       </select>
     </div>
 
+    <div class="field">
+      <span class="material-icons">subject</span>
+      <input [(ngModel)]="assuntoFilter" (ngModelChange)="aplicarFiltros()" placeholder="Buscar por assunto" />
+    </div>
+
     <div class="field period">
       <span class="material-icons">event</span>
       <input type="date" [(ngModel)]="dataInicioFilter" (ngModelChange)="aplicarFiltros()"
@@ -221,6 +226,11 @@
         </label>
 
         <label class="form-field">
+          <span class="form-label">Assunto</span>
+          <input [(ngModel)]="repAssunto" placeholder="Contém... (vazio = todos)" />
+        </label>
+
+        <label class="form-field">
           <span class="form-label">Qtd. de registros</span>
           <input type="number" min="1" [(ngModel)]="repQtd" placeholder="Ex.: 50" />
         </label>
@@ -236,7 +246,7 @@
 
       <div class="modal-hint" *ngIf="reportRows">
         <span class="material-icons">check_circle</span>
-        Relatório gerado com {{ reportRows.length }} registro(s). Use "Abrir PDF" para gerar a via do responsável.
+        Relatório gerado com {{ reportRows.length }} registro(s). Use "Abrir PDF" ou "Exportar Excel".
       </div>
     </div>
 
@@ -244,6 +254,9 @@
       <button class="btn-ghost" (click)="fecharRelatorio()">Cancelar</button>
       <button class="btn-ghost" *ngIf="reportRows && reportRows.length > 0" (click)="gerarPdf()">
         <span class="material-icons">picture_as_pdf</span> Abrir PDF
+      </button>
+      <button class="btn-ghost" *ngIf="reportRows && reportRows.length > 0" (click)="gerarExcel()">
+        <span class="material-icons">table_view</span> Exportar Excel
       </button>
       <button class="btn-primary" (click)="gerarRelatorio()">
         <span class="material-icons">play_arrow</span> Gerar relatório
