@@ -36,6 +36,13 @@ export class TicketListComponent implements OnInit {
 
   expandedIndex: number | null = null;
 
+  // ===== Ordenação =====
+  /** Coluna atualmente ordenada (chave da planilha) ou null para ordem original. */
+  sortColumn: string | null = null;
+  sortDirection: 'asc' | 'desc' = 'asc';
+  /** Colunas que devem ser comparadas como data, não como texto. */
+  private readonly dateColumns = ['DATA_ENTRADA', 'DATA_CRIAÇÃO', 'DATA_ENCERRADA'];
+
   loading: boolean = false;
   error: string = '';
 
@@ -166,8 +173,62 @@ export class TicketListComponent implements OnInit {
 
       return numeroMatch && statusMatch && responsavelMatch && origemMatch && assuntoMatch && periodoMatch;
     });
+    this.aplicarOrdenacao();
     this.expandedIndex = null;
     this.updateContentWidth();
+  }
+
+  /** Ordena a lista filtrada conforme a coluna/direção selecionadas no cabeçalho. */
+  private aplicarOrdenacao(): void {
+    const coluna = this.sortColumn;
+    if (!coluna) return;
+
+    const fator = this.sortDirection === 'asc' ? 1 : -1;
+    const isData = this.dateColumns.includes(coluna);
+
+    this.filteredTickets = [...this.filteredTickets].sort((a, b) => {
+      const va = (a[coluna] ?? '').trim();
+      const vb = (b[coluna] ?? '').trim();
+
+      // Valores vazios sempre no fim, independente da direção
+      if (!va && !vb) return 0;
+      if (!va) return 1;
+      if (!vb) return -1;
+
+      if (isData) {
+        const ta = this.parseDataToTs(va);
+        const tb = this.parseDataToTs(vb);
+        if (ta === null && tb === null) return 0;
+        if (ta === null) return 1;
+        if (tb === null) return -1;
+        return (ta - tb) * fator;
+      }
+
+      return va.localeCompare(vb, 'pt-BR', { numeric: true, sensitivity: 'base' }) * fator;
+    });
+  }
+
+  /**
+   * Alterna a ordenação da coluna: asc -> desc -> sem ordenação.
+   */
+  ordenarPor(coluna: string): void {
+    if (this.sortColumn !== coluna) {
+      this.sortColumn = coluna;
+      this.sortDirection = 'asc';
+    } else if (this.sortDirection === 'asc') {
+      this.sortDirection = 'desc';
+    } else {
+      // Terceiro clique remove a ordenação e volta à ordem da planilha
+      this.sortColumn = null;
+      this.sortDirection = 'asc';
+    }
+    this.aplicarFiltros();
+  }
+
+  /** Ícone exibido no cabeçalho conforme o estado de ordenação da coluna. */
+  sortIcon(coluna: string): string {
+    if (this.sortColumn !== coluna) return 'unfold_more';
+    return this.sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward';
   }
 
   limparFiltros(): void {

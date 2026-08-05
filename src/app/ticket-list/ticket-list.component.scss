@@ -284,6 +284,44 @@
   white-space: nowrap;
 }
 
+/* Cabeçalhos ordenáveis */
+.ticket-table thead th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.ticket-table thead th.sortable:hover {
+  background: var(--brand-100);
+  color: var(--brand-700);
+}
+
+.ticket-table thead th.sortable.sorted {
+  color: var(--brand-700);
+  background: var(--brand-100);
+}
+
+.th-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sort-ico {
+  font-size: 15px;
+  opacity: 0.35;
+  transition: opacity 0.12s ease;
+}
+
+.ticket-table thead th.sortable:hover .sort-ico {
+  opacity: 0.75;
+}
+
+.ticket-table thead th.sortable.sorted .sort-ico {
+  opacity: 1;
+  color: var(--brand-600);
+}
+
 .ticket-table tbody td {
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);

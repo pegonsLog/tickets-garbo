@@ -122,13 +122,27 @@
     <table #tableEl class="ticket-table">
       <thead>
         <tr>
-          <th class="col-num">Número</th>
-          <th>Status</th>
-          <th>Responsável</th>
-          <th>Origem</th>
-          <th>Data Entrada</th>
-          <th>Assunto</th>
-          <th>Local</th>
+          <th class="col-num sortable" [class.sorted]="sortColumn === 'NUMERO'" (click)="ordenarPor('NUMERO')">
+            <span class="th-inner">Número <span class="material-icons sort-ico">{{ sortIcon('NUMERO') }}</span></span>
+          </th>
+          <th class="sortable" [class.sorted]="sortColumn === 'STATUS'" (click)="ordenarPor('STATUS')">
+            <span class="th-inner">Status <span class="material-icons sort-ico">{{ sortIcon('STATUS') }}</span></span>
+          </th>
+          <th class="sortable" [class.sorted]="sortColumn === 'RESPONSAVEL'" (click)="ordenarPor('RESPONSAVEL')">
+            <span class="th-inner">Responsável <span class="material-icons sort-ico">{{ sortIcon('RESPONSAVEL') }}</span></span>
+          </th>
+          <th class="sortable" [class.sorted]="sortColumn === 'ORIGEM'" (click)="ordenarPor('ORIGEM')">
+            <span class="th-inner">Origem <span class="material-icons sort-ico">{{ sortIcon('ORIGEM') }}</span></span>
+          </th>
+          <th class="sortable" [class.sorted]="sortColumn === 'DATA_ENTRADA'" (click)="ordenarPor('DATA_ENTRADA')">
+            <span class="th-inner">Data Entrada <span class="material-icons sort-ico">{{ sortIcon('DATA_ENTRADA') }}</span></span>
+          </th>
+          <th class="sortable" [class.sorted]="sortColumn === 'ASSUNTO'" (click)="ordenarPor('ASSUNTO')">
+            <span class="th-inner">Assunto <span class="material-icons sort-ico">{{ sortIcon('ASSUNTO') }}</span></span>
+          </th>
+          <th class="sortable" [class.sorted]="sortColumn === 'RUA'" (click)="ordenarPor('RUA')">
+            <span class="th-inner">Local <span class="material-icons sort-ico">{{ sortIcon('RUA') }}</span></span>
+          </th>
           <th class="col-action"></th>
         </tr>
       </thead>
