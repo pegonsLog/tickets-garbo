@@ -5,11 +5,12 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { GoogleSheetsService, SheetData } from '../services/google-sheets.service';
+import { TruncateTooltipDirective } from '../shared/truncate-tooltip.directive';
 
 @Component({
   selector: 'app-ticket-list',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TruncateTooltipDirective],
   templateUrl: './ticket-list.component.html',
   styleUrls: ['./ticket-list.component.scss']
 })
@@ -31,6 +32,8 @@ export class TicketListComponent implements OnInit {
   responsavelFilter: string = 'TODOS';
   origemFilter: string = 'TODOS';
   assuntoFilter: string = '';
+  solicitanteFilter: string = '';
+  localFilter: string = '';
   dataInicioFilter: string = '';
   dataFimFilter: string = '';
 
@@ -55,6 +58,8 @@ export class TicketListComponent implements OnInit {
   repStatus: string = 'TODOS';
   repOrigem: string = 'TODOS';
   repAssunto: string = '';
+  repSolicitante: string = '';
+  repLocal: string = '';
   repQtd: number | null = 200;
   repOrdem: 'recentes' | 'antigas' = 'recentes';
 
@@ -149,6 +154,8 @@ export class TicketListComponent implements OnInit {
   aplicarFiltros(): void {
     const numero = this.numeroFilter.trim().toLowerCase();
     const assunto = this.assuntoFilter.trim().toLowerCase();
+    const solicitante = this.solicitanteFilter.trim().toLowerCase();
+    const local = this.localFilter.trim().toLowerCase();
     // Campos de data (type=date) chegam como yyyy-mm-dd
     const inicioTs = this.dataInicioFilter ? this.parseDataToTs(this.dataInicioFilter) : null;
     const fimTs = this.dataFimFilter ? this.parseDataToTs(this.dataFimFilter) : null;
@@ -159,6 +166,12 @@ export class TicketListComponent implements OnInit {
       const responsavelMatch = this.responsavelFilter === 'TODOS' || row['RESPONSAVEL'] === this.responsavelFilter;
       const origemMatch = this.origemFilter === 'TODOS' || row['ORIGEM'] === this.origemFilter;
       const assuntoMatch = !assunto || (row['ASSUNTO'] ?? '').toLowerCase().includes(assunto);
+      const solicitanteMatch = !solicitante || (row['SOLICITANTE'] ?? '').toLowerCase().includes(solicitante);
+      // Local considera rua, número e bairro
+      const localMatch = !local || [row['RUA'], row['NUM'], row['BAIRRO']]
+        .map(v => (v ?? '').toLowerCase())
+        .join(' ')
+        .includes(local);
 
       let periodoMatch = true;
       if (inicioTs !== null || fimTs !== null) {
@@ -171,7 +184,8 @@ export class TicketListComponent implements OnInit {
         }
       }
 
-      return numeroMatch && statusMatch && responsavelMatch && origemMatch && assuntoMatch && periodoMatch;
+      return numeroMatch && statusMatch && responsavelMatch && origemMatch && assuntoMatch
+        && solicitanteMatch && localMatch && periodoMatch;
     });
     this.aplicarOrdenacao();
     this.expandedIndex = null;
@@ -237,6 +251,8 @@ export class TicketListComponent implements OnInit {
     this.responsavelFilter = 'TODOS';
     this.origemFilter = 'TODOS';
     this.assuntoFilter = '';
+    this.solicitanteFilter = '';
+    this.localFilter = '';
     this.dataInicioFilter = '';
     this.dataFimFilter = '';
     this.aplicarFiltros();
@@ -252,6 +268,8 @@ export class TicketListComponent implements OnInit {
       || this.responsavelFilter !== 'TODOS'
       || this.origemFilter !== 'TODOS'
       || this.assuntoFilter.trim() !== ''
+      || this.solicitanteFilter.trim() !== ''
+      || this.localFilter.trim() !== ''
       || this.dataInicioFilter !== ''
       || this.dataFimFilter !== '';
   }
@@ -309,6 +327,8 @@ export class TicketListComponent implements OnInit {
     this.repStatus = this.statusFilter;
     this.repOrigem = this.origemFilter;
     this.repAssunto = this.assuntoFilter;
+    this.repSolicitante = this.solicitanteFilter;
+    this.repLocal = this.localFilter;
     this.reportRows = null;
     this.reportGeneratedAt = null;
     this.reportModalOpen = true;
@@ -322,12 +342,20 @@ export class TicketListComponent implements OnInit {
     const inicioTs = this.repInicio ? this.parseDataToTs(this.repInicio) : null;
     const fimTs = this.repFim ? this.parseDataToTs(this.repFim) : null;
     const assuntoRep = this.repAssunto.trim().toLowerCase();
+    const solicitanteRep = this.repSolicitante.trim().toLowerCase();
+    const localRep = this.repLocal.trim().toLowerCase();
 
     let rows = this.allTickets.filter(row => {
       const statusMatch = this.repStatus === 'TODOS' || row['STATUS'] === this.repStatus;
       const responsavelMatch = this.repResponsavel === 'TODOS' || row['RESPONSAVEL'] === this.repResponsavel;
       const origemMatch = this.repOrigem === 'TODOS' || row['ORIGEM'] === this.repOrigem;
       const assuntoMatch = !assuntoRep || (row['ASSUNTO'] ?? '').toLowerCase().includes(assuntoRep);
+      const solicitanteMatch = !solicitanteRep || (row['SOLICITANTE'] ?? '').toLowerCase().includes(solicitanteRep);
+      // Local considera rua, número e bairro
+      const localMatch = !localRep || [row['RUA'], row['NUM'], row['BAIRRO']]
+        .map(v => (v ?? '').toLowerCase())
+        .join(' ')
+        .includes(localRep);
 
       let periodoMatch = true;
       if (inicioTs !== null || fimTs !== null) {
@@ -339,7 +367,8 @@ export class TicketListComponent implements OnInit {
           if (fimTs !== null && dataTs > fimTs) periodoMatch = false;
         }
       }
-      return statusMatch && responsavelMatch && origemMatch && assuntoMatch && periodoMatch;
+      return statusMatch && responsavelMatch && origemMatch && assuntoMatch
+        && solicitanteMatch && localMatch && periodoMatch;
     });
 
     // Ordena por DATA_ENTRADA conforme a ordem escolhida (linhas sem data vão para o fim)
@@ -384,6 +413,7 @@ export class TicketListComponent implements OnInit {
       `Período: ${this.repPeriodoLabel}`,
       `Status: ${this.repStatus === 'TODOS' ? 'Todos' : this.repStatus}    Origem: ${this.repOrigem === 'TODOS' ? 'Todas' : this.repOrigem}`,
       `Assunto: ${this.repAssunto.trim() ? this.repAssunto : 'Todos'}`,
+      `Solicitante: ${this.repSolicitante.trim() ? this.repSolicitante : 'Todos'}    Local: ${this.repLocal.trim() ? this.repLocal : 'Todos'}`,
       `Registros: ${this.reportRows.length}    Gerado em: ${(this.reportGeneratedAt ?? new Date()).toLocaleString('pt-BR')}`
     ];
     let y = 30;

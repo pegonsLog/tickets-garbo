@@ -80,6 +80,17 @@
       <input [(ngModel)]="assuntoFilter" (ngModelChange)="aplicarFiltros()" placeholder="Buscar por assunto" />
     </div>
 
+    <div class="field">
+      <span class="material-icons">account_circle</span>
+      <input [(ngModel)]="solicitanteFilter" (ngModelChange)="aplicarFiltros()" placeholder="Buscar por solicitante" />
+    </div>
+
+    <div class="field">
+      <span class="material-icons">place</span>
+      <input [(ngModel)]="localFilter" (ngModelChange)="aplicarFiltros()"
+        placeholder="Buscar por local (rua, nº, bairro)" />
+    </div>
+
     <div class="field period">
       <span class="material-icons">event</span>
       <input type="date" [(ngModel)]="dataInicioFilter" (ngModelChange)="aplicarFiltros()"
@@ -154,13 +165,13 @@
             <td>
               <div class="person">
                 <span class="avatar">{{ iniciais(ticket['RESPONSAVEL']) }}</span>
-                <span class="person-name">{{ ticket['RESPONSAVEL'] || '—' }}</span>
+                <span class="person-name" appTruncateTooltip>{{ ticket['RESPONSAVEL'] || '—' }}</span>
               </div>
             </td>
             <td>{{ ticket['ORIGEM'] || '—' }}</td>
             <td>{{ ticket['DATA_ENTRADA'] || '—' }}</td>
-            <td class="cell-clamp">{{ ticket['ASSUNTO'] || '—' }}</td>
-            <td class="cell-clamp">{{ ticket['RUA'] ? (ticket['RUA'] + (ticket['NUM'] ? ', ' + ticket['NUM'] : '')) : '—' }}</td>
+            <td class="cell-clamp" appTruncateTooltip>{{ ticket['ASSUNTO'] || '—' }}</td>
+            <td class="cell-clamp" appTruncateTooltip>{{ ticket['RUA'] ? (ticket['RUA'] + (ticket['NUM'] ? ', ' + ticket['NUM'] : '')) : '—' }}</td>
             <td class="col-action">
               <span class="material-icons chevron" [class.open]="expandedIndex === i">expand_more</span>
             </td>
@@ -242,6 +253,16 @@
         <label class="form-field">
           <span class="form-label">Assunto</span>
           <input [(ngModel)]="repAssunto" placeholder="Contém... (vazio = todos)" />
+        </label>
+
+        <label class="form-field">
+          <span class="form-label">Solicitante</span>
+          <input [(ngModel)]="repSolicitante" placeholder="Contém... (vazio = todos)" />
+        </label>
+
+        <label class="form-field">
+          <span class="form-label">Local</span>
+          <input [(ngModel)]="repLocal" placeholder="Rua, nº ou bairro (vazio = todos)" />
         </label>
 
         <label class="form-field">
