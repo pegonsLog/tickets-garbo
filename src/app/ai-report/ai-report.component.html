@@ -1,0 +1,38 @@
+<div class="modal-backdrop" *ngIf="aberto" (click)="fechar.emit()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-head">
+      <h2><span class="material-icons">fact_check</span> Relatório de solicitações semelhantes</h2>
+      <div class="head-meta" *ngIf="relatorio">
+        <span class="pill">{{ totalGrupos }} grupo(s)</span>
+        <span class="pill strong">{{ respostasEconomizadas }} resposta(s) economizada(s)</span>
+      </div>
+      <button class="icon-btn" (click)="fechar.emit()" aria-label="Fechar">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <iframe #frame class="preview-frame" title="Pré-visualização do relatório"
+        [srcdoc]="htmlSeguro"></iframe>
+    </div>
+
+    <div class="modal-foot">
+      <span class="foot-hint">
+        <span class="material-icons">info</span>
+        Em "Imprimir", escolha <strong>Salvar como PDF</strong> e mantenha os gráficos de fundo ativados.
+      </span>
+      <div class="foot-actions">
+        <button class="btn-ghost" (click)="fechar.emit()">Fechar</button>
+        <button class="btn-ghost" (click)="abrirEmNovaAba()" [disabled]="!html">
+          <span class="material-icons">open_in_new</span> Nova aba
+        </button>
+        <button class="btn-ghost" (click)="baixarHtml()" [disabled]="!html">
+          <span class="material-icons">download</span> Baixar HTML
+        </button>
+        <button class="btn-primary" (click)="imprimir()" [disabled]="!html">
+          <span class="material-icons">picture_as_pdf</span> Imprimir / PDF
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

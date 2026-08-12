@@ -9,6 +9,11 @@
       </div>
     </div>
     <div class="hero-actions">
+      <button class="btn-hero" (click)="abrirContexto()" [disabled]="loading || filteredCount === 0"
+        title="Levar os registros filtrados para análise por IA">
+        <span class="material-icons">psychology</span>
+        Analisar com IA
+      </button>
       <button class="btn-hero" (click)="abrirRelatorio()" [disabled]="loading || totalCount === 0">
         <span class="material-icons">description</span>
         Gerar relatório
@@ -299,5 +304,14 @@
     </div>
   </div>
 </div>
+
+<!-- ===== Contexto para análise por IA ===== -->
+<app-ai-context
+  [aberto]="contextoModalOpen"
+  [registros]="filteredTickets"
+  [filtros]="filtrosContexto"
+  [totalBase]="totalCount"
+  (fechar)="fecharContexto()">
+</app-ai-context>
 
 

@@ -6,11 +6,12 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { GoogleSheetsService, SheetData } from '../services/google-sheets.service';
 import { TruncateTooltipDirective } from '../shared/truncate-tooltip.directive';
+import { AiContextComponent, FiltroAtivo } from '../ai-context/ai-context.component';
 
 @Component({
   selector: 'app-ticket-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, TruncateTooltipDirective],
+  imports: [CommonModule, FormsModule, TruncateTooltipDirective, AiContextComponent],
   templateUrl: './ticket-list.component.html',
   styleUrls: ['./ticket-list.component.scss']
 })
@@ -65,6 +66,9 @@ export class TicketListComponent implements OnInit {
 
   reportRows: Record<string, string>[] | null = null;
   reportGeneratedAt: Date | null = null;
+
+  // ===== Contexto para IA =====
+  contextoModalOpen: boolean = false;
 
   // Largura da tabela para dimensionar a barra de rolagem superior
   @ViewChild('tableEl') tableEl?: ElementRef<HTMLElement>;
@@ -316,6 +320,52 @@ export class TicketListComponent implements OnInit {
     if (partes.length === 0) return '?';
     if (partes.length === 1) return partes[0].charAt(0).toUpperCase();
     return (partes[0].charAt(0) + partes[partes.length - 1].charAt(0)).toUpperCase();
+  }
+
+  // ===== Contexto para IA =====
+  abrirContexto(): void {
+    this.contextoModalOpen = true;
+  }
+
+  fecharContexto(): void {
+    this.contextoModalOpen = false;
+  }
+
+  /**
+   * Descreve, em texto legível, apenas os filtros realmente aplicados na tela.
+   * Serve para documentar no contexto qual recorte de dados a IA está analisando.
+   */
+  get filtrosContexto(): FiltroAtivo[] {
+    const fmtData = (s: string) => {
+      const ts = this.parseDataToTs(s);
+      return ts !== null ? new Date(ts).toLocaleDateString('pt-BR') : s;
+    };
+
+    const filtros: FiltroAtivo[] = [];
+    if (this.numeroFilter.trim()) filtros.push({ rotulo: 'Número contém', valor: this.numeroFilter.trim() });
+    if (this.statusFilter !== 'TODOS') filtros.push({ rotulo: 'Status', valor: this.statusFilter });
+    if (this.responsavelFilter !== 'TODOS') filtros.push({ rotulo: 'Responsável', valor: this.responsavelFilter });
+    if (this.origemFilter !== 'TODOS') filtros.push({ rotulo: 'Origem', valor: this.origemFilter });
+    if (this.assuntoFilter.trim()) filtros.push({ rotulo: 'Assunto contém', valor: this.assuntoFilter.trim() });
+    if (this.solicitanteFilter.trim()) filtros.push({ rotulo: 'Solicitante contém', valor: this.solicitanteFilter.trim() });
+    if (this.localFilter.trim()) filtros.push({ rotulo: 'Local contém', valor: this.localFilter.trim() });
+
+    if (this.dataInicioFilter && this.dataFimFilter) {
+      filtros.push({ rotulo: 'Data de entrada', valor: `${fmtData(this.dataInicioFilter)} até ${fmtData(this.dataFimFilter)}` });
+    } else if (this.dataInicioFilter) {
+      filtros.push({ rotulo: 'Data de entrada', valor: `a partir de ${fmtData(this.dataInicioFilter)}` });
+    } else if (this.dataFimFilter) {
+      filtros.push({ rotulo: 'Data de entrada', valor: `até ${fmtData(this.dataFimFilter)}` });
+    }
+
+    if (this.sortColumn) {
+      filtros.push({
+        rotulo: 'Ordenação',
+        valor: `${this.sortColumn} (${this.sortDirection === 'asc' ? 'crescente' : 'decrescente'})`
+      });
+    }
+
+    return filtros;
   }
 
   // ===== Relatório =====

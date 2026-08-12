@@ -1,0 +1,179 @@
+<div class="modal-backdrop" *ngIf="aberto" (click)="fechar.emit()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-head">
+      <h2><span class="material-icons">psychology</span> Contexto para análise por IA</h2>
+      <button class="icon-btn" (click)="fechar.emit()" aria-label="Fechar">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <p class="ctx-intro">
+        Monta um pacote com os registros do resultado filtrado para colar em um chat de IA. A análise deve apontar
+        quais tickets tratam do mesmo problema no mesmo local e poderiam ser atendidos por uma única resposta.
+      </p>
+
+      <!-- Resumo -->
+      <div class="ctx-stats">
+        <div class="ctx-stat">
+          <span class="ctx-stat-label">Registros</span>
+          <span class="ctx-stat-value">{{ registrosNoContexto }}</span>
+          <span class="ctx-stat-sub">de {{ registros.length }} filtrado(s)</span>
+        </div>
+        <div class="ctx-stat" [class.warn]="agruparPorLocal && gruposDuplicados > 0">
+          <span class="ctx-stat-label">Locais repetidos</span>
+          <span class="ctx-stat-value">{{ agruparPorLocal ? gruposDuplicados : '—' }}</span>
+          <span class="ctx-stat-sub">{{ agruparPorLocal ? 'grupo(s) com 2+ registros' : 'agrupamento desligado' }}</span>
+        </div>
+        <div class="ctx-stat">
+          <span class="ctx-stat-label">Tamanho</span>
+          <span class="ctx-stat-value">{{ caracteresLabel }}</span>
+          <span class="ctx-stat-sub">~{{ tokensLabel }} tokens</span>
+        </div>
+      </div>
+
+      <div class="ctx-alert" *ngIf="limiteAplicado">
+        <span class="material-icons">info</span>
+        Apenas os {{ registrosNoContexto }} primeiros registros entraram no contexto. Aumente o limite ou refine os
+        filtros para analisar os {{ registros.length }} registros do resultado.
+      </div>
+
+      <!-- Filtros aplicados -->
+      <div class="ctx-block">
+        <span class="ctx-block-title">Filtros da consulta</span>
+        <div class="ctx-chips">
+          <span class="ctx-chip muted" *ngIf="filtros.length === 0">Nenhum filtro — base completa</span>
+          <span class="ctx-chip" *ngFor="let f of filtros">
+            <strong>{{ f.rotulo }}:</strong> {{ f.valor }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Opções -->
+      <div class="form-grid">
+        <label class="form-field">
+          <span class="form-label">Máx. de registros (0 = todos)</span>
+          <input type="number" min="0" [(ngModel)]="limite" (ngModelChange)="gerar()" placeholder="Ex.: 300" />
+        </label>
+
+        <label class="form-field">
+          <span class="form-label">Formato</span>
+          <select [(ngModel)]="formato" (ngModelChange)="gerar()">
+            <option value="markdown">Markdown (mais legível)</option>
+            <option value="compacto">Compacto (economiza tokens)</option>
+            <option value="json">JSON (estruturado)</option>
+          </select>
+        </label>
+
+        <label class="form-field">
+          <span class="form-label">Modelo da IA (Firebase, nível sem custo)</span>
+          <select [(ngModel)]="modeloIa">
+            <option *ngFor="let m of modelosDisponiveis" [value]="m.id">{{ m.rotulo }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="ctx-toggles">
+        <label class="ctx-check">
+          <input type="checkbox" [(ngModel)]="agruparPorLocal" (ngModelChange)="gerar()" />
+          <span>Agrupar por semelhança de local (sugere duplicidades)</span>
+        </label>
+        <label class="ctx-check">
+          <input type="checkbox" [(ngModel)]="incluirInstrucao" (ngModelChange)="gerar()" />
+          <span>Incluir a instrução de análise antes dos dados</span>
+        </label>
+      </div>
+
+      <!-- Campos -->
+      <div class="ctx-block">
+        <div class="ctx-block-head">
+          <span class="ctx-block-title">Campos incluídos</span>
+          <div class="ctx-block-actions">
+            <button type="button" class="link-btn" (click)="marcarTodosCampos(true)">Todos</button>
+            <span class="sep">·</span>
+            <button type="button" class="link-btn" (click)="marcarTodosCampos(false)">Nenhum</button>
+          </div>
+        </div>
+        <div class="ctx-fields">
+          <label class="ctx-check" *ngFor="let campo of campos">
+            <input type="checkbox" [(ngModel)]="campo.incluir" (ngModelChange)="gerar()" />
+            <span>{{ campo.rotulo }}</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Instrução -->
+      <div class="ctx-block" *ngIf="incluirInstrucao">
+        <div class="ctx-block-head">
+          <span class="ctx-block-title">Instrução para uso manual em outro chat de IA</span>
+          <button type="button" class="link-btn" (click)="restaurarInstrucao()">Restaurar padrão</button>
+        </div>
+        <p class="ctx-nota">
+          Vale apenas para o texto copiado/baixado. O botão "Analisar e gerar relatório" usa as regras
+          e o formato de resposta próprios da aplicação.
+        </p>
+        <textarea class="ctx-textarea" rows="8" [(ngModel)]="instrucao" (ngModelChange)="gerar()"></textarea>
+      </div>
+
+      <!-- Pré-visualização -->
+      <div class="ctx-block">
+        <span class="ctx-block-title">Pré-visualização do contexto</span>
+        <textarea #previewEl class="ctx-textarea preview" rows="12" readonly
+          [value]="texto"
+          placeholder="Nenhum registro no resultado filtrado."></textarea>
+      </div>
+
+      <div class="ctx-progress" *ngIf="analisando">
+        <div class="ctx-progress-track"><div class="ctx-progress-bar"></div></div>
+        <span>
+          Analisando {{ registrosNoContexto }} registro(s) com {{ modeloIa }}.
+          Isso pode levar de alguns segundos a cerca de um minuto.
+        </span>
+      </div>
+
+      <div class="modal-hint" *ngIf="copiado">
+        <span class="material-icons">check_circle</span>
+        Contexto copiado. Cole no chat da IA para receber o relatório de registros semelhantes.
+      </div>
+
+      <div class="ctx-alert error" *ngIf="erroCopia">
+        <span class="material-icons">error_outline</span>
+        {{ erroCopia }}
+      </div>
+
+      <div class="ctx-alert error" *ngIf="erroAnalise">
+        <span class="material-icons">error_outline</span>
+        {{ erroAnalise }}
+      </div>
+
+      <div class="modal-hint" *ngIf="relatorio && !relatorioAberto">
+        <span class="material-icons">fact_check</span>
+        Relatório pronto com {{ relatorio.grupos.length }} grupo(s).
+        <button type="button" class="link-btn" (click)="reabrirRelatorio()">Abrir relatório</button>
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn-ghost" (click)="fechar.emit()" [disabled]="analisando">Fechar</button>
+      <button class="btn-ghost" (click)="baixar()" [disabled]="!texto || analisando">
+        <span class="material-icons">download</span> Baixar arquivo
+      </button>
+      <button class="btn-ghost" (click)="copiar()" [disabled]="!texto || analisando">
+        <span class="material-icons">{{ copiado ? 'check' : 'content_copy' }}</span>
+        {{ copiado ? 'Copiado!' : 'Copiar contexto' }}
+      </button>
+      <button class="btn-primary" (click)="analisar()" [disabled]="!texto || analisando">
+        <span class="material-icons" [class.spin]="analisando">{{ analisando ? 'autorenew' : 'auto_awesome' }}</span>
+        {{ analisando ? 'Analisando...' : 'Analisar e gerar relatório' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Relatório gerado pela IA -->
+<app-ai-report
+  [aberto]="relatorioAberto"
+  [relatorio]="relatorio"
+  [meta]="metaRelatorio"
+  (fechar)="fecharRelatorio()">
+</app-ai-report>
