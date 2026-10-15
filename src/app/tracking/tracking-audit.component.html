@@ -1,0 +1,102 @@
+<div class="modal-backdrop" *ngIf="aberto" (click)="!processando && fechar.emit()">
+  <div class="modal" [class.largo]="resultado" (click)="$event.stopPropagation()">
+    <div class="modal-head">
+      <h2><span class="material-icons">rule</span> Auditoria do acompanhamento</h2>
+      <div class="head-meta" *ngIf="resultado">
+        <span class="pill">{{ resultado.totalNoPdf }} ticket(s)</span>
+        <span class="pill forte">{{ resultado.percentualComAtividade }}% com atividade</span>
+      </div>
+      <button class="icon-btn" (click)="fechar.emit()" [disabled]="processando" aria-label="Fechar">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+
+    <!-- Formulário -->
+    <div class="modal-body" *ngIf="!resultado">
+      <p class="intro">
+        Envie o PDF com a relação dos tickets passados para andamento no período. A IA identifica os números
+        dos tickets e o sistema verifica, em cada um, as atividades registradas e quem as realizou.
+      </p>
+
+      <label class="zona" [class.arrastando]="arrastando" [class.com-arquivo]="arquivo"
+        (dragover)="sobre($event)" (dragleave)="arrastando = false" (drop)="soltar($event)">
+        <input #arquivoInput type="file" accept="application/pdf,.pdf" (change)="selecionar($event)"
+          [disabled]="processando" />
+        <ng-container *ngIf="!arquivo">
+          <span class="material-icons">upload_file</span>
+          <strong>Arraste o PDF aqui ou clique para selecionar</strong>
+          <small>Tamanho máximo: {{ limiteMb }} MB</small>
+        </ng-container>
+        <ng-container *ngIf="arquivo">
+          <span class="material-icons">picture_as_pdf</span>
+          <strong>{{ arquivo.name }}</strong>
+          <small>{{ tamanhoArquivo }}</small>
+        </ng-container>
+      </label>
+      <div class="arquivo-acoes" *ngIf="arquivo && !processando">
+        <button type="button" class="link-btn" (click)="removerArquivo()">Trocar arquivo</button>
+      </div>
+
+      <div class="form-grid">
+        <label class="form-field">
+          <span class="form-label">Atividades a partir de (opcional)</span>
+          <input type="date" [(ngModel)]="periodoInicio" [disabled]="processando" />
+        </label>
+        <label class="form-field">
+          <span class="form-label">Até (opcional)</span>
+          <input type="date" [(ngModel)]="periodoFim" [disabled]="processando" />
+        </label>
+        <label class="form-field">
+          <span class="form-label">Modelo da IA</span>
+          <select [(ngModel)]="modelo" [disabled]="processando">
+            <option *ngFor="let m of modelos" [value]="m.id">{{ m.rotulo }}</option>
+          </select>
+        </label>
+      </div>
+      <p class="nota">
+        Com período informado, só contam as atividades com data dentro dele. Sem período, vale todo o histórico.
+      </p>
+
+      <div class="progresso" *ngIf="processando">
+        <div class="trilha"><div class="barra"></div></div>
+        <span>{{ etapa }}</span>
+      </div>
+
+      <div class="alerta erro" *ngIf="erro">
+        <span class="material-icons">error_outline</span>
+        {{ erro }}
+      </div>
+    </div>
+
+    <!-- Relatório -->
+    <div class="modal-body relatorio" *ngIf="resultado">
+      <iframe #frame class="preview" title="Relatório de auditoria" [srcdoc]="htmlSeguro"></iframe>
+    </div>
+
+    <div class="modal-foot">
+      <ng-container *ngIf="!resultado">
+        <button class="btn-ghost" (click)="fechar.emit()" [disabled]="processando">Cancelar</button>
+        <button class="btn-primary" (click)="analisar()" [disabled]="!arquivo || processando">
+          <span class="material-icons" [class.gira]="processando">{{ processando ? 'autorenew' : 'auto_awesome' }}</span>
+          {{ processando ? 'Analisando...' : 'Analisar PDF' }}
+        </button>
+      </ng-container>
+      <ng-container *ngIf="resultado">
+        <button class="btn-ghost" (click)="novaAuditoria()">
+          <span class="material-icons">restart_alt</span> Nova auditoria
+        </button>
+        <div class="direita">
+          <button class="btn-ghost" (click)="abrirEmNovaAba()">
+            <span class="material-icons">open_in_new</span> Nova aba
+          </button>
+          <button class="btn-ghost" (click)="baixarHtml()">
+            <span class="material-icons">download</span> Baixar HTML
+          </button>
+          <button class="btn-primary" (click)="imprimir()">
+            <span class="material-icons">picture_as_pdf</span> Imprimir / PDF
+          </button>
+        </div>
+      </ng-container>
+    </div>
+  </div>
+</div>

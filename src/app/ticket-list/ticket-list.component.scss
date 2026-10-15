@@ -1,5 +1,17 @@
+/*
+ * O host do componente é inline por padrão. Como bloco com min-width: 0, a página
+ * fica presa à largura da janela e quem rola horizontalmente é só a tabela.
+ */
+:host {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
 .page {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   margin: 0;
   padding: 28px 32px 60px;
 }
@@ -242,6 +254,9 @@
 
 /* ===== Tabela ===== */
 .table-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -261,25 +276,28 @@
 }
 
 .table-scroll {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ticket-table {
   width: 100%;
-  min-width: 960px;
+  min-width: 1080px;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .ticket-table thead th {
   text-align: left;
-  font-size: 0.74rem;
+  font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--ink-500);
   background: var(--brand-50);
-  padding: 14px 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
@@ -322,8 +340,13 @@
   color: var(--brand-600);
 }
 
+/* Só as linhas da lista ficam em uma linha; o detalhe expandido continua quebrando o texto */
+.ticket-table tbody tr.row > td {
+  white-space: nowrap;
+}
+
 .ticket-table tbody td {
-  padding: 14px 16px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--border);
   color: var(--ink-700);
   vertical-align: middle;
@@ -350,12 +373,13 @@
 }
 
 .col-action {
-  width: 44px;
+  width: 84px;
   text-align: center;
 }
 
+/* Limite aplicado em um div interno: max-width direto no <td> é ignorado pelos navegadores */
 .cell-clamp {
-  max-width: 240px;
+  max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -365,9 +389,9 @@
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: 999px;
-  font-size: 0.76rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -398,12 +422,12 @@
 
 .avatar {
   flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 700;
   color: var(--brand-700);
   background: var(--brand-100);
@@ -413,7 +437,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 160px;
+  max-width: 150px;
 }
 
 .chevron {
@@ -494,6 +518,10 @@
 
   .cell-clamp {
     max-width: 140px;
+  }
+
+  .page {
+    padding: 20px 14px 48px;
   }
 }
 
@@ -634,3 +662,112 @@
   }
 }
 
+
+/* ===== Acompanhamento ===== */
+.acoes-linha {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-acomp {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 9px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink-500);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-acomp .material-icons {
+  font-size: 18px;
+}
+
+.btn-acomp:hover:not(:disabled) {
+  border-color: var(--brand-500);
+  color: var(--brand-600);
+}
+
+.btn-acomp:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+}
+
+/* Ticket já acompanhado: botão preenchido */
+.btn-acomp.ativo {
+  background: var(--brand-100);
+  border-color: var(--brand-100);
+  color: var(--brand-700);
+}
+
+.alerta-acomp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.alerta-acomp > span:nth-child(2) {
+  flex: 1 1 auto;
+}
+
+.alerta-acomp .icon-btn {
+  color: var(--danger-fg);
+  padding: 4px;
+}
+
+/* Coluna de acompanhamento: status atual + quem está com o ticket */
+.col-acomp {
+  min-width: 150px;
+  max-width: 190px;
+}
+
+.st-acomp {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.st-acomp.st-concluida { background: var(--success-bg); color: var(--success-fg); }
+.st-acomp.st-em_andamento { background: var(--warning-bg); color: var(--warning-fg); }
+.st-acomp.st-aguardando { background: var(--bg); color: var(--ink-500); border: 1px solid var(--border); }
+
+.quem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  min-width: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-700);
+}
+
+.quem .material-icons {
+  font-size: 15px;
+  color: var(--ink-500);
+  flex: 0 0 auto;
+}
+
+.quem-nome {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sem-acomp {
+  color: var(--ink-300);
+}

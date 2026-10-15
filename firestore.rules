@@ -1,0 +1,79 @@
+rules_version = '2';
+
+// Regras do acompanhamento de tickets.
+//
+// ATENÇÃO: a aplicação não tem login. Sem autenticação, estas regras NÃO conseguem
+// distinguir quem está acessando — qualquer pessoa com a configuração pública do app
+// pode ler e gravar nestas coleções. O que elas garantem:
+//   - só as coleções do acompanhamento são acessíveis (todo o resto é negado);
+//   - cada documento precisa ter o formato, os tipos e os tamanhos esperados;
+//   - o status da atividade só aceita os dois valores definidos.
+// Proteções adicionais recomendadas: ativar o enforcement do App Check para o
+// Cloud Firestore e, quando possível, adicionar Firebase Authentication.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /tickets_acompanhados/{ticketId} {
+      allow read: if true;
+      allow create, update: if ticketValido(request.resource.data);
+      allow delete: if true;
+
+      match /atividades/{atividadeId} {
+        allow read: if true;
+        allow create, update: if atividadeValida(request.resource.data);
+        allow delete: if true;
+      }
+    }
+
+    // Qualquer outro caminho é negado
+    match /{caminho=**} {
+      allow read, write: if false;
+    }
+  }
+
+  function textoAte(valor, max) {
+    return valor is string && valor.size() <= max;
+  }
+
+  function ticketValido(d) {
+    return d.keys().hasOnly([
+        'numero', 'status', 'responsavel', 'origem', 'solicitante', 'dataEntrada',
+        'assunto', 'classe', 'rua', 'num', 'bairro', 'regional', 'descricao', 'resposta',
+        'criadoEm', 'atualizadoEm', 'totalAtividades', 'atividadesConcluidas',
+        'ultimaAtividadeData', 'ultimaAtividadeHora', 'ultimaAtividadeUsuario', 'ultimaAtividadeStatus'
+      ])
+      && d.numero is string && d.numero.size() > 0 && d.numero.size() <= 60
+      && textoAte(d.get('status', ''), 60)
+      && textoAte(d.get('responsavel', ''), 200)
+      && textoAte(d.get('origem', ''), 200)
+      && textoAte(d.get('solicitante', ''), 200)
+      && textoAte(d.get('dataEntrada', ''), 40)
+      && textoAte(d.get('assunto', ''), 500)
+      && textoAte(d.get('classe', ''), 200)
+      && textoAte(d.get('rua', ''), 300)
+      && textoAte(d.get('num', ''), 40)
+      && textoAte(d.get('bairro', ''), 200)
+      && textoAte(d.get('regional', ''), 200)
+      && textoAte(d.get('descricao', ''), 10000)
+      && textoAte(d.get('resposta', ''), 10000)
+      && textoAte(d.get('criadoEm', ''), 40)
+      && textoAte(d.get('atualizadoEm', ''), 40)
+      && d.get('totalAtividades', 0) is int && d.get('totalAtividades', 0) >= 0
+      && d.get('atividadesConcluidas', 0) is int && d.get('atividadesConcluidas', 0) >= 0
+      && textoAte(d.get('ultimaAtividadeData', ''), 10)
+      && textoAte(d.get('ultimaAtividadeHora', ''), 5)
+      && textoAte(d.get('ultimaAtividadeUsuario', ''), 80)
+      && d.get('ultimaAtividadeStatus', 'em_andamento') in ['em_andamento', 'concluida'];
+  }
+
+  function atividadeValida(d) {
+    return d.keys().hasOnly(['data', 'hora', 'descricao', 'status', 'usuario', 'criadoEm'])
+      && d.data is string && d.data.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+      && (!('hora' in d) || (d.hora is string && d.hora.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')))
+      && d.descricao is string && d.descricao.size() >= 3 && d.descricao.size() <= 5000
+      && d.status in ['em_andamento', 'concluida']
+      && d.usuario is string && d.usuario.size() >= 2 && d.usuario.size() <= 80
+      && textoAte(d.get('criadoEm', ''), 40);
+  }
+}

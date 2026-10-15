@@ -1,0 +1,156 @@
+<div class="modal-backdrop" *ngIf="aberto" (click)="fechar.emit()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-head">
+      <h2><span class="material-icons">fact_check</span> Acompanhamento do ticket</h2>
+      <span class="num-pill">{{ numero }}</span>
+      <button class="icon-btn" (click)="fechar.emit()" aria-label="Fechar">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="estado" *ngIf="carregando">
+        <span class="spinner"></span>
+        <span>Carregando acompanhamento...</span>
+      </div>
+
+      <div class="alerta erro" *ngIf="erro">
+        <span class="material-icons">error_outline</span>
+        {{ erro }}
+      </div>
+
+      <ng-container *ngIf="!carregando && ticket">
+        <!-- Resumo do ticket -->
+        <div class="resumo">
+          <div class="resumo-head">
+            <span class="badge" [class]="situacaoClasse">{{ situacao }}</span>
+            <span class="resumo-contagem">
+              {{ ticket.totalAtividades || 0 }} atividade(s) ·
+              {{ ticket.atividadesConcluidas || 0 }} concluída(s)
+            </span>
+          </div>
+          <div class="resumo-grid">
+            <div><span class="k">Assunto</span><span class="v">{{ ticket.assunto || '—' }}</span></div>
+            <div><span class="k">Solicitante</span><span class="v">{{ ticket.solicitante || '—' }}</span></div>
+            <div><span class="k">Local</span><span class="v">{{ local }}</span></div>
+            <div><span class="k">Responsável</span><span class="v">{{ ticket.responsavel || '—' }}</span></div>
+            <div><span class="k">Status na planilha</span><span class="v">{{ ticket.status || '—' }}</span></div>
+            <div><span class="k">Data de entrada</span><span class="v">{{ ticket.dataEntrada || '—' }}</span></div>
+            <div *ngIf="ticket.ultimaAtividadeUsuario">
+              <span class="k">Última atividade por</span>
+              <span class="v">
+                {{ ticket.ultimaAtividadeUsuario }} em {{ dataHora(ticket.ultimaAtividadeData, ticket.ultimaAtividadeHora) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Nova atividade -->
+        <div class="bloco">
+          <span class="bloco-titulo">
+            {{ editandoId ? 'Editar atividade' : 'Registrar atividade' }}
+          </span>
+
+          <div class="form-grid tres">
+            <label class="form-field">
+              <span class="form-label">Data da atividade</span>
+              <input type="date" [(ngModel)]="formData" [disabled]="salvando" required />
+            </label>
+
+            <label class="form-field">
+              <span class="form-label">
+                Hora
+                <button type="button" class="link-btn" (click)="usarAgora()" [disabled]="salvando">agora</button>
+              </span>
+              <input type="time" [(ngModel)]="formHora" [disabled]="salvando" required
+                [class.invalido]="!horaValida" />
+            </label>
+
+            <label class="form-field">
+              <span class="form-label">Status</span>
+              <select [(ngModel)]="formStatus" [disabled]="salvando">
+                <option value="em_andamento">{{ rotuloStatus['em_andamento'] }}</option>
+                <option value="concluida">{{ rotuloStatus['concluida'] }}</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="form-field campo-usuario">
+            <span class="form-label">Realizada por</span>
+            <input [(ngModel)]="formUsuario" [disabled]="salvando" list="usuarios-recentes"
+              autocomplete="off" maxlength="80" placeholder="Nome de quem realizou a atividade" />
+            <datalist id="usuarios-recentes">
+              <option *ngFor="let u of usuariosRecentes" [value]="u"></option>
+            </datalist>
+          </label>
+
+          <label class="form-field">
+            <span class="form-label">Descrição do que foi feito</span>
+            <textarea #descricaoEl rows="3" [(ngModel)]="formDescricao" [disabled]="salvando"
+              placeholder="Ex.: Equipe de manutenção acionada e serviço agendado para 20/08."></textarea>
+          </label>
+
+          <div class="alerta ok" *ngIf="sucesso" role="status">
+            <span class="material-icons">check_circle</span>
+            {{ sucesso }}
+          </div>
+
+          <div class="form-acoes">
+            <button class="btn-ghost" *ngIf="editandoId" (click)="cancelarEdicao()" [disabled]="salvando">
+              Cancelar edição
+            </button>
+            <button class="btn-primary" (click)="salvarAtividade()" [disabled]="!formValido || salvando">
+              <span class="material-icons" [class.gira]="salvando">{{ salvando ? 'autorenew' : (editandoId ? 'save' : 'add') }}</span>
+              {{ salvando ? 'Salvando...' : (editandoId ? 'Salvar alterações' : 'Adicionar atividade') }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Histórico -->
+        <div class="bloco">
+          <span class="bloco-titulo">Histórico de atividades ({{ atividades.length }})</span>
+
+          <div class="vazio" *ngIf="atividades.length === 0">
+            Nenhuma atividade registrada ainda. Use o formulário acima para registrar a primeira.
+          </div>
+
+          <ul class="linha-tempo" *ngIf="atividades.length > 0">
+            <li *ngFor="let a of atividades" [class.editando]="editandoId === a.id">
+              <div class="marcador" [class]="classeStatus(a.status)"></div>
+              <div class="conteudo">
+                <div class="conteudo-head">
+                  <span class="data">{{ dataHora(a.data, a.hora) }}</span>
+                  <span class="badge" [class]="classeStatus(a.status)">{{ rotuloStatus[a.status] }}</span>
+                  <div class="acoes">
+                    <button class="icon-btn" (click)="editar(a)" [disabled]="salvando" title="Editar">
+                      <span class="material-icons">edit</span>
+                    </button>
+                    <button class="icon-btn perigo" (click)="excluir(a)" [disabled]="salvando" title="Excluir">
+                      <span class="material-icons">delete_outline</span>
+                    </button>
+                  </div>
+                </div>
+                <span class="autor">
+                  <span class="material-icons">person</span>
+                  {{ a.usuario || 'Usuário não informado' }}
+                </span>
+                <p class="descricao">{{ a.descricao }}</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </ng-container>
+
+      <div class="vazio" *ngIf="!carregando && !ticket && !erro">
+        Este ticket ainda não está em acompanhamento.
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn-ghost perigo" (click)="removerAcompanhamento()" [disabled]="salvando || !ticket">
+        <span class="material-icons">delete_outline</span> Remover do acompanhamento
+      </button>
+      <button class="btn-ghost" (click)="fechar.emit()" [disabled]="salvando">Fechar</button>
+    </div>
+  </div>
+</div>

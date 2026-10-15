@@ -7,11 +7,48 @@ import * as XLSX from 'xlsx';
 import { GoogleSheetsService, SheetData } from '../services/google-sheets.service';
 import { TruncateTooltipDirective } from '../shared/truncate-tooltip.directive';
 import { AiContextComponent, FiltroAtivo } from '../ai-context/ai-context.component';
+import { FirestoreTrackingService } from '../services/firestore-tracking.service';
+import { TicketTrackingComponent } from '../tracking/ticket-tracking.component';
+import { TrackingAuditComponent } from '../tracking/tracking-audit.component';
+import { chaveNumero } from '../tracking/audit.model';
+import {
+  ROTULO_STATUS_ATUAL, StatusAtual, TicketAcompanhado, dataHoraLegivel, statusAtualDe
+} from '../tracking/tracking.model';
+
+type FiltroAcompanhamento = 'TODOS' | 'ACOMPANHADOS' | 'NAO_ACOMPANHADOS' | StatusAtual;
+
+/** Chave de comparação de nomes: sem acentos, minúsculas e espaços simples. */
+function chaveNome(nome: string): string {
+  return (nome ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Lista de nomes sem repetição, em ordem alfabética.
+ * "Maria Silva", "maria  silva" e "María Silva" viram uma única opção
+ * (mantém a primeira grafia encontrada).
+ */
+function nomesDistintos(nomes: string[]): string[] {
+  const porChave = new Map<string, string>();
+  nomes.forEach(n => {
+    const limpo = (n ?? '').replace(/\s+/g, ' ').trim();
+    const chave = chaveNome(limpo);
+    if (chave && !porChave.has(chave)) porChave.set(chave, limpo);
+  });
+  return Array.from(porChave.values()).sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
+}
 
 @Component({
   selector: 'app-ticket-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, TruncateTooltipDirective, AiContextComponent],
+  imports: [
+    CommonModule, FormsModule, TruncateTooltipDirective, AiContextComponent,
+    TicketTrackingComponent, TrackingAuditComponent
+  ],
   templateUrl: './ticket-list.component.html',
   styleUrls: ['./ticket-list.component.scss']
 })
@@ -37,6 +74,24 @@ export class TicketListComponent implements OnInit {
   localFilter: string = '';
   dataInicioFilter: string = '';
   dataFimFilter: string = '';
+  /**
+   * Filtro de acompanhamento:
+   * TODOS | ACOMPANHADOS (qualquer status) | NAO_ACOMPANHADOS | um StatusAtual específico.
+   */
+  acompanhamentoFilter: FiltroAcompanhamento = 'TODOS';
+  /** Quem registrou a atividade mais recente ('TODOS' = sem filtro). */
+  ultimoUsuarioFilter: string = 'TODOS';
+  /** Nomes distintos de quem fez a última atividade, montados a partir do Firestore. */
+  ultimoUsuarioOptions: string[] = [];
+
+  readonly opcoesAcompanhamento: { valor: FiltroAcompanhamento; rotulo: string }[] = [
+    { valor: 'TODOS', rotulo: 'Acompanhamento: todos' },
+    { valor: 'ACOMPANHADOS', rotulo: 'Em acompanhamento' },
+    { valor: 'aguardando', rotulo: '— Aguardando atividade' },
+    { valor: 'em_andamento', rotulo: '— Em andamento' },
+    { valor: 'concluida', rotulo: '— Concluída' },
+    { valor: 'NAO_ACOMPANHADOS', rotulo: 'Não acompanhados' }
+  ];
 
   expandedIndex: number | null = null;
 
@@ -70,14 +125,28 @@ export class TicketListComponent implements OnInit {
   // ===== Contexto para IA =====
   contextoModalOpen: boolean = false;
 
+  // ===== Acompanhamento (Firestore) =====
+  /** Resumo dos tickets em acompanhamento, indexado pela chave numérica (só dígitos). */
+  private acompanhados = new Map<string, TicketAcompanhado>();
+  /** Número do ticket sendo enviado ao Firestore, para mostrar o carregamento no botão. */
+  enviandoNumero: string | null = null;
+  acompanhamentoNumero: string = '';
+  acompanhamentoAberto: boolean = false;
+  auditoriaAberta: boolean = false;
+  erroAcompanhamento: string = '';
+
   // Largura da tabela para dimensionar a barra de rolagem superior
   @ViewChild('tableEl') tableEl?: ElementRef<HTMLElement>;
   contentWidth = 0;
 
-  constructor(private googleSheetsService: GoogleSheetsService) {}
+  constructor(
+    private googleSheetsService: GoogleSheetsService,
+    private tracking: FirestoreTrackingService
+  ) {}
 
   ngOnInit(): void {
     this.carregarTickets();
+    this.carregarAcompanhados();
   }
 
   @HostListener('window:resize')
@@ -189,11 +258,27 @@ export class TicketListComponent implements OnInit {
       }
 
       return numeroMatch && statusMatch && responsavelMatch && origemMatch && assuntoMatch
-        && solicitanteMatch && localMatch && periodoMatch;
+        && solicitanteMatch && localMatch && periodoMatch
+        && this.passaFiltroAcompanhamento(row) && this.passaFiltroUltimoUsuario(row);
     });
     this.aplicarOrdenacao();
     this.expandedIndex = null;
     this.updateContentWidth();
+  }
+
+  private passaFiltroAcompanhamento(row: Record<string, string>): boolean {
+    const filtro = this.acompanhamentoFilter;
+    if (filtro === 'TODOS') return true;
+    const status = this.statusAcompanhamento(row);
+    if (filtro === 'ACOMPANHADOS') return status !== null;
+    if (filtro === 'NAO_ACOMPANHADOS') return status === null;
+    return status === filtro;
+  }
+
+  /** Compara nomes ignorando maiúsculas, acentos e espaços extras. */
+  private passaFiltroUltimoUsuario(row: Record<string, string>): boolean {
+    if (this.ultimoUsuarioFilter === 'TODOS') return true;
+    return chaveNome(this.quemEstaCom(row)) === chaveNome(this.ultimoUsuarioFilter);
   }
 
   /** Ordena a lista filtrada conforme a coluna/direção selecionadas no cabeçalho. */
@@ -259,6 +344,8 @@ export class TicketListComponent implements OnInit {
     this.localFilter = '';
     this.dataInicioFilter = '';
     this.dataFimFilter = '';
+    this.acompanhamentoFilter = 'TODOS';
+    this.ultimoUsuarioFilter = 'TODOS';
     this.aplicarFiltros();
   }
 
@@ -275,7 +362,9 @@ export class TicketListComponent implements OnInit {
       || this.solicitanteFilter.trim() !== ''
       || this.localFilter.trim() !== ''
       || this.dataInicioFilter !== ''
-      || this.dataFimFilter !== '';
+      || this.dataFimFilter !== ''
+      || this.acompanhamentoFilter !== 'TODOS'
+      || this.ultimoUsuarioFilter !== 'TODOS';
   }
 
   private countByStatus(list: Record<string, string>[], status: string): number {
@@ -322,6 +411,124 @@ export class TicketListComponent implements OnInit {
     return (partes[0].charAt(0) + partes[partes.length - 1].charAt(0)).toUpperCase();
   }
 
+  // ===== Acompanhamento =====
+
+  /**
+   * Carrega o resumo dos tickets acompanhados (status atual e quem está com o ticket).
+   * Uma única consulta: o resumo fica no próprio documento, sem ler as atividades.
+   */
+  async carregarAcompanhados(): Promise<void> {
+    try {
+      const lista = await this.tracking.listar();
+      const mapa = new Map<string, TicketAcompanhado>();
+      lista.forEach(t => {
+        const chave = chaveNumero(t.numero);
+        if (chave) mapa.set(chave, t);
+      });
+      this.acompanhados = mapa;
+      this.ultimoUsuarioOptions = nomesDistintos(lista.map(t => t.ultimaAtividadeUsuario ?? ''));
+
+      // O resumo chega depois da planilha: refiltra se algum filtro de acompanhamento estiver em uso
+      if (this.acompanhamentoFilter !== 'TODOS' || this.ultimoUsuarioFilter !== 'TODOS') {
+        this.aplicarFiltros();
+      }
+    } catch (e: any) {
+      // Não impede o uso da lista: apenas os botões não indicam o que já é acompanhado
+      console.error('[Acompanhamento] Falha ao listar tickets acompanhados', e);
+      this.erroAcompanhamento = this.mensagemFirestore(e);
+    }
+  }
+
+  estaAcompanhado(ticket: Record<string, string>): boolean {
+    return !!this.resumoDe(ticket);
+  }
+
+  private resumoDe(ticket: Record<string, string>): TicketAcompanhado | undefined {
+    const chave = chaveNumero(ticket['NUMERO'] ?? '');
+    return chave ? this.acompanhados.get(chave) : undefined;
+  }
+
+  /** Status atual do acompanhamento, ou null se o ticket não é acompanhado. */
+  statusAcompanhamento(ticket: Record<string, string>): StatusAtual | null {
+    const resumo = this.resumoDe(ticket);
+    return resumo ? statusAtualDe(resumo) : null;
+  }
+
+  rotuloStatusAcompanhamento(status: StatusAtual): string {
+    return ROTULO_STATUS_ATUAL[status];
+  }
+
+  /** Quem está com o ticket: quem registrou a atividade mais recente. */
+  quemEstaCom(ticket: Record<string, string>): string {
+    return (this.resumoDe(ticket)?.ultimaAtividadeUsuario ?? '').trim();
+  }
+
+  /** Data e hora da atividade mais recente (ex.: "12/08/2026 às 14:30"). */
+  dataUltimaAtividade(ticket: Record<string, string>): string {
+    const resumo = this.resumoDe(ticket);
+    return resumo?.ultimaAtividadeData
+      ? dataHoraLegivel(resumo.ultimaAtividadeData, resumo.ultimaAtividadeHora)
+      : '';
+  }
+
+  /**
+   * Botão da linha: leva o ticket para o Firestore (se ainda não estiver) e abre
+   * o acompanhamento. O clique não expande a linha.
+   */
+  async acompanhar(ticket: Record<string, string>, evento: Event): Promise<void> {
+    evento.stopPropagation();
+    const numero = (ticket['NUMERO'] ?? '').trim();
+    if (!numero || this.enviandoNumero) return;
+
+    this.erroAcompanhamento = '';
+    if (!this.estaAcompanhado(ticket)) {
+      this.enviandoNumero = numero;
+      try {
+        const resumo = await this.tracking.acompanhar(ticket);
+        this.acompanhados.set(chaveNumero(numero), resumo);
+      } catch (e: any) {
+        this.erroAcompanhamento = this.mensagemFirestore(e);
+        return;
+      } finally {
+        this.enviandoNumero = null;
+      }
+    }
+
+    this.acompanhamentoNumero = numero;
+    this.acompanhamentoAberto = true;
+  }
+
+  fecharAcompanhamento(): void {
+    this.acompanhamentoAberto = false;
+  }
+
+  /** Recarrega as marcações (ex.: o ticket foi removido do acompanhamento). */
+  aoAlterarAcompanhamento(): void {
+    this.carregarAcompanhados();
+  }
+
+  abrirAuditoria(): void {
+    this.auditoriaAberta = true;
+  }
+
+  fecharAuditoria(): void {
+    this.auditoriaAberta = false;
+  }
+
+  get totalAcompanhados(): number {
+    return this.acompanhados.size;
+  }
+
+  private mensagemFirestore(e: any): string {
+    if (e?.code === 'permission-denied') {
+      return 'O Firestore recusou o acesso (permission-denied). Publique as regras de segurança do arquivo firestore.rules.';
+    }
+    if (e?.code === 'unavailable' || e?.code === 'failed-precondition' || e?.code === 'not-found') {
+      return 'Não foi possível acessar o Firestore. Confirme que o banco de dados foi criado no Console do Firebase.';
+    }
+    return `Falha no acompanhamento: ${e?.message ?? e}`;
+  }
+
   // ===== Contexto para IA =====
   abrirContexto(): void {
     this.contextoModalOpen = true;
@@ -349,6 +556,13 @@ export class TicketListComponent implements OnInit {
     if (this.assuntoFilter.trim()) filtros.push({ rotulo: 'Assunto contém', valor: this.assuntoFilter.trim() });
     if (this.solicitanteFilter.trim()) filtros.push({ rotulo: 'Solicitante contém', valor: this.solicitanteFilter.trim() });
     if (this.localFilter.trim()) filtros.push({ rotulo: 'Local contém', valor: this.localFilter.trim() });
+    if (this.acompanhamentoFilter !== 'TODOS') {
+      const opcao = this.opcoesAcompanhamento.find(o => o.valor === this.acompanhamentoFilter);
+      filtros.push({ rotulo: 'Acompanhamento', valor: (opcao?.rotulo ?? '').replace(/^—\s*/, '') });
+    }
+    if (this.ultimoUsuarioFilter !== 'TODOS') {
+      filtros.push({ rotulo: 'Última atividade por', valor: this.ultimoUsuarioFilter });
+    }
 
     if (this.dataInicioFilter && this.dataFimFilter) {
       filtros.push({ rotulo: 'Data de entrada', valor: `${fmtData(this.dataInicioFilter)} até ${fmtData(this.dataFimFilter)}` });

@@ -14,6 +14,11 @@
         <span class="material-icons">psychology</span>
         Analisar com IA
       </button>
+      <button class="btn-hero" (click)="abrirAuditoria()"
+        title="Enviar o PDF do período e verificar as atividades registradas">
+        <span class="material-icons">rule</span>
+        Auditar andamento
+      </button>
       <button class="btn-hero" (click)="abrirRelatorio()" [disabled]="loading || totalCount === 0">
         <span class="material-icons">description</span>
         Gerar relatório
@@ -96,6 +101,24 @@
         placeholder="Buscar por local (rua, nº, bairro)" />
     </div>
 
+    <div class="field">
+      <span class="material-icons">fact_check</span>
+      <select [(ngModel)]="acompanhamentoFilter" (ngModelChange)="aplicarFiltros()"
+        aria-label="Filtrar por acompanhamento">
+        <option *ngFor="let o of opcoesAcompanhamento" [ngValue]="o.valor">{{ o.rotulo }}</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <span class="material-icons">badge</span>
+      <select [(ngModel)]="ultimoUsuarioFilter" (ngModelChange)="aplicarFiltros()"
+        aria-label="Filtrar por quem fez a última atividade"
+        [title]="ultimoUsuarioOptions.length ? 'Quem registrou a atividade mais recente' : 'Nenhuma atividade registrada ainda'">
+        <option value="TODOS">Última atividade por: todos</option>
+        <option *ngFor="let u of ultimoUsuarioOptions" [value]="u">{{ u }}</option>
+      </select>
+    </div>
+
     <div class="field period">
       <span class="material-icons">event</span>
       <input type="date" [(ngModel)]="dataInicioFilter" (ngModelChange)="aplicarFiltros()"
@@ -110,6 +133,14 @@
       Limpar
     </button>
   </section>
+
+  <div class="alerta-acomp" *ngIf="erroAcompanhamento" role="alert">
+    <span class="material-icons">error_outline</span>
+    <span>{{ erroAcompanhamento }}</span>
+    <button class="icon-btn" (click)="erroAcompanhamento = ''" aria-label="Dispensar aviso">
+      <span class="material-icons">close</span>
+    </button>
+  </div>
 
   <!-- Estados -->
   <div class="state loading" *ngIf="loading">
@@ -159,6 +190,7 @@
           <th class="sortable" [class.sorted]="sortColumn === 'RUA'" (click)="ordenarPor('RUA')">
             <span class="th-inner">Local <span class="material-icons sort-ico">{{ sortIcon('RUA') }}</span></span>
           </th>
+          <th class="col-acomp">Acompanhamento</th>
           <th class="col-action"></th>
         </tr>
       </thead>
@@ -175,14 +207,36 @@
             </td>
             <td>{{ ticket['ORIGEM'] || '—' }}</td>
             <td>{{ ticket['DATA_ENTRADA'] || '—' }}</td>
-            <td class="cell-clamp" appTruncateTooltip>{{ ticket['ASSUNTO'] || '—' }}</td>
-            <td class="cell-clamp" appTruncateTooltip>{{ ticket['RUA'] ? (ticket['RUA'] + (ticket['NUM'] ? ', ' + ticket['NUM'] : '')) : '—' }}</td>
+            <td><div class="cell-clamp" appTruncateTooltip>{{ ticket['ASSUNTO'] || '—' }}</div></td>
+            <td><div class="cell-clamp" appTruncateTooltip>{{ ticket['RUA'] ? (ticket['RUA'] + (ticket['NUM'] ? ', ' + ticket['NUM'] : '')) : '—' }}</div></td>
+            <td class="col-acomp">
+              <ng-container *ngIf="statusAcompanhamento(ticket) as st; else naoAcompanhado">
+                <span class="st-acomp" [ngClass]="'st-' + st">{{ rotuloStatusAcompanhamento(st) }}</span>
+                <span class="quem" *ngIf="quemEstaCom(ticket) as quem"
+                  [title]="'Última atividade em ' + dataUltimaAtividade(ticket)">
+                  <span class="material-icons">person</span>
+                  <span class="quem-nome" appTruncateTooltip>{{ quem }}</span>
+                </span>
+              </ng-container>
+              <ng-template #naoAcompanhado><span class="sem-acomp">—</span></ng-template>
+            </td>
             <td class="col-action">
-              <span class="material-icons chevron" [class.open]="expandedIndex === i">expand_more</span>
+              <div class="acoes-linha">
+                <button type="button" class="btn-acomp" [class.ativo]="estaAcompanhado(ticket)"
+                  (click)="acompanhar(ticket, $event)"
+                  [disabled]="!ticket['NUMERO'] || enviandoNumero === ticket['NUMERO']"
+                  [title]="estaAcompanhado(ticket) ? 'Ver acompanhamento e atividades' : 'Levar para acompanhamento'"
+                  [attr.aria-label]="(estaAcompanhado(ticket) ? 'Ver acompanhamento do ticket ' : 'Acompanhar ticket ') + ticket['NUMERO']">
+                  <span class="material-icons" [class.spin]="enviandoNumero === ticket['NUMERO']">
+                    {{ enviandoNumero === ticket['NUMERO'] ? 'autorenew' : (estaAcompanhado(ticket) ? 'fact_check' : 'playlist_add') }}
+                  </span>
+                </button>
+                <span class="material-icons chevron" [class.open]="expandedIndex === i">expand_more</span>
+              </div>
             </td>
           </tr>
           <tr class="detail-row" *ngIf="expandedIndex === i">
-            <td colspan="8">
+            <td colspan="9">
               <div class="detail">
                 <div class="detail-grid">
                   <div class="detail-item"><span class="k">Solicitante</span><span class="v">{{ ticket['SOLICITANTE'] || '—' }}</span></div>
@@ -304,6 +358,20 @@
     </div>
   </div>
 </div>
+
+<!-- ===== Acompanhamento do ticket (Firestore) ===== -->
+<app-ticket-tracking
+  [aberto]="acompanhamentoAberto"
+  [numero]="acompanhamentoNumero"
+  (alterado)="aoAlterarAcompanhamento()"
+  (fechar)="fecharAcompanhamento()">
+</app-ticket-tracking>
+
+<!-- ===== Auditoria do andamento (PDF) ===== -->
+<app-tracking-audit
+  [aberto]="auditoriaAberta"
+  (fechar)="fecharAuditoria()">
+</app-tracking-audit>
 
 <!-- ===== Contexto para análise por IA ===== -->
 <app-ai-context
