@@ -4,14 +4,17 @@ import { obterFirebaseApp } from './firebase-init';
 import { MODELO_PADRAO } from './ai-analysis.service';
 import { FirestoreTrackingService } from './firestore-tracking.service';
 import {
+  ItemPdf,
   META_ATINGIDA,
   META_PARCIAL,
   PeriodoAuditoria,
   ResultadoAuditoria,
+  ResultadoComparacao,
   chaveNumero,
   descreverPeriodo
 } from '../tracking/audit.model';
 import { indexarPorChave, montarResultado } from '../tracking/audit-crossing';
+import { compararStatus } from '../tracking/status-comparison';
 
 /**
  * Tamanho máximo do PDF.
@@ -20,24 +23,51 @@ import { indexarPorChave, montarResultado } from '../tracking/audit-crossing';
  */
 export const TAMANHO_MAX_PDF = 12 * 1024 * 1024;
 
-/** Esquema da extração: apenas a lista de números encontrados no PDF. */
+/**
+ * Esquema da extração: número de cada ticket e, se o documento trouxer, o status.
+ * Uma única leitura do PDF alimenta as duas análises (auditoria e comparação de status).
+ */
 const ESQUEMA_EXTRACAO = Schema.object({
   properties: {
-    numeros: Schema.array({
-      items: Schema.string({ description: 'Número do ticket exatamente como aparece no documento' })
+    tickets: Schema.array({
+      items: Schema.object({
+        properties: {
+          numero: Schema.string({ description: 'Número do ticket exatamente como aparece no documento' }),
+          status: Schema.string({
+            description: 'Status do ticket como aparece no documento (ex.: ABERTA, ENCERRADA). '
+              + 'Vazio se o documento não informar status para este ticket.'
+          })
+        },
+        optionalProperties: ['status']
+      })
     })
   }
 });
 
 const INSTRUCAO_EXTRACAO = [
   'Você recebe um documento PDF com uma relação de tickets (solicitações) que foram encaminhados para atendimento.',
-  'Extraia APENAS os números identificadores dos tickets presentes no documento.',
+  'Extraia, para cada ticket presente no documento, o número identificador e o status.',
   '',
   'Regras:',
   '- Transcreva cada número exatamente como aparece, preservando pontos, barras e hifens.',
-  '- Não repita números. Não invente números que não estejam no documento.',
+  '- Transcreva o status exatamente como está no documento, sem traduzir nem interpretar.',
+  '- Se o documento não tiver coluna ou indicação de status para um ticket, deixe o status vazio.',
+  '  Nunca deduza o status a partir de datas, cores ou outros campos.',
+  '- Não repita tickets. Não invente tickets que não estejam no documento.',
   '- Ignore cabeçalhos, rodapés, totalizadores, números de página e datas.',
   '- Se o documento não tiver nenhum número de ticket, devolva a lista vazia.'
+].join('\n');
+
+const INSTRUCAO_PARECER_STATUS = [
+  'Você é analista de atendimento ao cidadão.',
+  'Recebe a comparação entre o status dos tickets em um relatório emitido anteriormente (o arquivo)',
+  'e o status atual desses mesmos tickets no sistema (a lista).',
+  'Com base apenas nos números apresentados, escreva um parecer curto (3 a 5 frases) em português do Brasil.',
+  '',
+  'Explique quanto o cenário mudou desde a emissão do arquivo, quais mudanças de status predominam e o que',
+  'isso indica sobre o andamento dos atendimentos (por exemplo, tickets que passaram a encerrados indicam',
+  'resolução). Se muitos tickets não puderam ser comparados, mencione isso como limitação da análise.',
+  'Não invente dados. Responda em texto corrido, sem títulos, listas ou marcação.'
 ].join('\n');
 
 const INSTRUCAO_PARECER = [
@@ -73,12 +103,19 @@ export class AiAuditService {
 
   constructor(private tracking: FirestoreTrackingService) {}
 
-  /** Executa a auditoria: lê o PDF, cruza com o acompanhamento e monta o resultado. */
+  /**
+   * Executa a auditoria: lê o PDF uma única vez e produz duas análises separadas:
+   *   1. auditoria do acompanhamento (atividades registradas em cada ticket);
+   *   2. comparação entre o status no arquivo e o status atual da lista.
+   *
+   * @param lista linhas da planilha carregada na tela, usadas na comparação de status
+   */
   async auditar(
     arquivo: File,
     periodo: PeriodoAuditoria = {},
     modelo: string = MODELO_PADRAO,
-    aoProgredir: (etapa: string) => void = () => {}
+    aoProgredir: (etapa: string) => void = () => {},
+    lista: Record<string, string>[] = []
   ): Promise<ResultadoAuditoria> {
     validarArquivo(arquivo);
     if (periodo.inicio && periodo.fim && periodo.inicio > periodo.fim) {
@@ -86,7 +123,8 @@ export class AiAuditService {
     }
 
     aoProgredir('Lendo o PDF com a IA...');
-    const numeros = await this.extrairNumeros(arquivo, modelo);
+    const itensPdf = await this.extrairTickets(arquivo, modelo);
+    const numeros = itensPdf.map(i => i.numero);
     if (numeros.length === 0) {
       throw new Error('Nenhum número de ticket foi encontrado no PDF. Verifique se o arquivo contém a relação de tickets.');
     }
@@ -108,12 +146,25 @@ export class AiAuditService {
 
     const resultado = montarResultado(numeros, acompanhados, atividades, periodo, arquivo.name, modelo);
 
-    aoProgredir('Redigindo o parecer...');
-    try {
-      resultado.parecer = await this.gerarParecer(resultado, modelo);
-    } catch (erro) {
-      // O parecer é complementar: sem ele o relatório continua válido
-      console.error('[Auditoria] Falha ao gerar o parecer da IA', erro);
+    aoProgredir('Comparando o status do arquivo com a lista atual...');
+    const comparacao = compararStatus(itensPdf, lista, acompanhados);
+    resultado.comparacao = comparacao;
+
+    aoProgredir('Redigindo os pareceres...');
+    // Os dois pareceres são independentes e complementares: falha em um não afeta o outro
+    const [parecer, parecerStatus] = await Promise.allSettled([
+      this.gerarParecer(resultado, modelo),
+      podeOpinarSobreStatus(comparacao) ? this.gerarParecerStatus(comparacao, modelo) : Promise.resolve('')
+    ]);
+    if (parecer.status === 'fulfilled') {
+      resultado.parecer = parecer.value;
+    } else {
+      console.error('[Auditoria] Falha ao gerar o parecer da IA', parecer.reason);
+    }
+    if (parecerStatus.status === 'fulfilled') {
+      comparacao.parecer = parecerStatus.value || undefined;
+    } else {
+      console.error('[Auditoria] Falha ao gerar o parecer da comparação de status', parecerStatus.reason);
     }
 
     return resultado;
@@ -136,7 +187,8 @@ export class AiAuditService {
         systemInstruction: INSTRUCAO_EXTRACAO,
         generationConfig: {
           temperature: 0,
-          maxOutputTokens: 8192,
+          // Cada ticket agora traz número e status: mais espaço para relações longas
+          maxOutputTokens: 16384,
           responseMimeType: 'application/json',
           responseSchema: ESQUEMA_EXTRACAO
         }
@@ -146,21 +198,23 @@ export class AiAuditService {
     return m;
   }
 
-  private parecerista(modelo: string): GenerativeModel {
-    let m = this.pareceristas.get(modelo);
+  /** Modelo de texto livre, com cache por (modelo, instrução). */
+  private parecerista(modelo: string, instrucao: string = INSTRUCAO_PARECER): GenerativeModel {
+    const chave = `${modelo}|${instrucao === INSTRUCAO_PARECER ? 'auditoria' : 'status'}`;
+    let m = this.pareceristas.get(chave);
     if (!m) {
       m = getGenerativeModel(this.obterAi(), {
         model: modelo,
-        systemInstruction: INSTRUCAO_PARECER,
+        systemInstruction: instrucao,
         generationConfig: { temperature: 0.3, maxOutputTokens: 1024 }
       });
-      this.pareceristas.set(modelo, m);
+      this.pareceristas.set(chave, m);
     }
     return m;
   }
 
-  /** Envia o PDF ao modelo e devolve os números de ticket encontrados, sem repetição. */
-  private async extrairNumeros(arquivo: File, modelo: string): Promise<string[]> {
+  /** Envia o PDF ao modelo e devolve os tickets (número + status) encontrados, sem repetição. */
+  private async extrairTickets(arquivo: File, modelo: string): Promise<ItemPdf[]> {
     const base64 = await paraBase64(arquivo);
 
     let resposta;
@@ -183,14 +237,34 @@ export class AiAuditService {
       throw new Error('A IA não retornou conteúdo ao ler o PDF. Tente novamente.');
     }
 
-    let bruto: { numeros?: unknown };
+    let bruto: { tickets?: unknown };
     try {
       bruto = JSON.parse(texto);
     } catch {
       throw new Error('A leitura do PDF retornou um formato inesperado. Tente novamente.');
     }
 
-    return deduplicarNumeros(Array.isArray(bruto.numeros) ? bruto.numeros : []);
+    return deduplicarTickets(Array.isArray(bruto.tickets) ? bruto.tickets : []);
+  }
+
+  /** Parecer textual da comparação de status, a partir dos números já calculados. */
+  private async gerarParecerStatus(c: ResultadoComparacao, modelo: string): Promise<string> {
+    const linhas = [
+      `Tickets no arquivo: ${c.total}`,
+      `Mesmo status hoje: ${c.iguais}`,
+      `Status alterado desde o arquivo: ${c.alterados} (${c.percentualAlterado}% dos comparáveis)`,
+      `Sem status no arquivo (não comparáveis): ${c.semStatusPdf}`,
+      `Não encontrados na lista atual: ${c.foraDaLista}`,
+      'Mudanças de status mais frequentes:',
+      ...(c.transicoes.length
+        ? c.transicoes.slice(0, 10).map(t => `- ${t.de} → ${t.para}: ${t.quantidade}`)
+        : ['- nenhuma'])
+    ];
+
+    const resposta = await this.parecerista(modelo, INSTRUCAO_PARECER_STATUS).generateContent(
+      `Avalie a comparação de status com base nestes números:\n\n${linhas.join('\n')}`
+    );
+    return (resposta.response.text() ?? '').trim();
   }
 
   /** Pede à IA um parecer textual sobre os quantitativos já calculados. */
@@ -218,18 +292,30 @@ export class AiAuditService {
 /**
  * Remove repetições (comparando só os dígitos) e descarta ruído: exige ao menos
  * 6 dígitos, para não confundir número de página ou ano solto com ticket.
+ * Se o mesmo ticket aparecer duas vezes, mantém o primeiro status não vazio.
  */
-export function deduplicarNumeros(lista: unknown[]): string[] {
-  const vistos = new Set<string>();
-  const numeros: string[] = [];
+export function deduplicarTickets(lista: unknown[]): ItemPdf[] {
+  const porChave = new Map<string, ItemPdf>();
   lista.forEach(item => {
-    const numero = String(item ?? '').trim();
+    const bruto = (item ?? {}) as { numero?: unknown; status?: unknown };
+    const numero = String(bruto.numero ?? '').trim();
+    const status = String(bruto.status ?? '').replace(/\s+/g, ' ').trim();
     const chave = chaveNumero(numero);
-    if (!numero || chave.length < 6 || vistos.has(chave)) return;
-    vistos.add(chave);
-    numeros.push(numero);
+    if (!numero || chave.length < 6) return;
+
+    const existente = porChave.get(chave);
+    if (!existente) {
+      porChave.set(chave, status ? { numero, status } : { numero });
+    } else if (!existente.status && status) {
+      existente.status = status;
+    }
   });
-  return numeros;
+  return Array.from(porChave.values());
+}
+
+/** Só vale pedir parecer à IA quando houve ao menos um ticket comparável. */
+function podeOpinarSobreStatus(c: ResultadoComparacao): boolean {
+  return !c.listaIndisponivel && !c.arquivoSemStatus && c.iguais + c.alterados > 0;
 }
 
 function validarArquivo(arquivo: File): void {

@@ -1,10 +1,13 @@
 <div class="modal-backdrop" *ngIf="aberto" (click)="!processando && fechar.emit()">
   <div class="modal" [class.largo]="resultado" (click)="$event.stopPropagation()">
     <div class="modal-head">
-      <h2><span class="material-icons">rule</span> Auditoria do acompanhamento</h2>
+      <h2><span class="material-icons">rule</span> Auditoria do andamento</h2>
       <div class="head-meta" *ngIf="resultado">
         <span class="pill">{{ resultado.totalNoPdf }} ticket(s)</span>
-        <span class="pill forte">{{ resultado.percentualComAtividade }}% com atividade</span>
+        <span class="pill forte" *ngIf="aba === 'acompanhamento'">{{ resultado.percentualComAtividade }}% com atividade</span>
+        <span class="pill alerta-pill" *ngIf="aba === 'status' && resultado.comparacao">
+          {{ resultado.comparacao.alterados }} com status alterado
+        </span>
       </div>
       <button class="icon-btn" (click)="fechar.emit()" [disabled]="processando" aria-label="Fechar">
         <span class="material-icons">close</span>
@@ -14,9 +17,16 @@
     <!-- Formulário -->
     <div class="modal-body" *ngIf="!resultado">
       <p class="intro">
-        Envie o PDF com a relação dos tickets passados para andamento no período. A IA identifica os números
-        dos tickets e o sistema verifica, em cada um, as atividades registradas e quem as realizou.
+        Envie o PDF com a relação dos tickets passados para andamento no período. Uma única leitura do arquivo
+        gera duas análises separadas: a <strong>auditoria do acompanhamento</strong> (atividades registradas e quem
+        as realizou) e a <strong>comparação de status</strong> (status de cada ticket no arquivo comparado ao status
+        atual na lista).
       </p>
+
+      <div class="aviso-lista" *ngIf="lista.length === 0">
+        <span class="material-icons">info</span>
+        A lista de tickets ainda não foi carregada. A auditoria funciona, mas a comparação de status ficará vazia.
+      </div>
 
       <label class="zona" [class.arrastando]="arrastando" [class.com-arquivo]="arquivo"
         (dragover)="sobre($event)" (dragleave)="arrastando = false" (drop)="soltar($event)">
@@ -68,9 +78,24 @@
       </div>
     </div>
 
+    <!-- Abas: as duas análises do mesmo arquivo -->
+    <div class="abas" role="tablist" *ngIf="resultado">
+      <button type="button" role="tab" class="aba" [class.ativa]="aba === 'acompanhamento'"
+        [attr.aria-selected]="aba === 'acompanhamento'" (click)="trocarAba('acompanhamento')">
+        <span class="material-icons">fact_check</span> Acompanhamento
+      </button>
+      <button type="button" role="tab" class="aba" [class.ativa]="aba === 'status'"
+        [attr.aria-selected]="aba === 'status'" (click)="trocarAba('status')">
+        <span class="material-icons">compare_arrows</span> Comparação de status
+        <span class="contador" *ngIf="resultado.comparacao?.alterados">{{ resultado.comparacao?.alterados }}</span>
+      </button>
+    </div>
+
     <!-- Relatório -->
     <div class="modal-body relatorio" *ngIf="resultado">
-      <iframe #frame class="preview" title="Relatório de auditoria" [srcdoc]="htmlSeguro"></iframe>
+      <iframe #frame class="preview"
+        [title]="aba === 'status' ? 'Relatório de comparação de status' : 'Relatório de auditoria'"
+        [srcdoc]="htmlSeguro"></iframe>
     </div>
 
     <div class="modal-foot">

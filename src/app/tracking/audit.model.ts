@@ -59,7 +59,68 @@ export interface ResultadoAuditoria {
 
   /** Parecer textual gerado pela IA a partir dos quantitativos. */
   parecer?: string;
+
+  /** Comparação, separada, entre o status do arquivo e o status atual da lista. */
+  comparacao?: ResultadoComparacao;
 }
+
+// ===== Comparação de status (arquivo x lista) =====
+
+/** Um ticket como lido no PDF: número e, se o documento trouxer, o status. */
+export interface ItemPdf {
+  numero: string;
+  status?: string;
+}
+
+/**
+ * Resultado da comparação de um ticket:
+ * - igual: o status no arquivo é o mesmo da lista hoje;
+ * - alterado: o status mudou desde a emissão do arquivo;
+ * - sem_status_pdf: o arquivo não informa status para este ticket;
+ * - fora_da_lista: o ticket não aparece na lista carregada.
+ */
+export type SituacaoComparacao = 'igual' | 'alterado' | 'sem_status_pdf' | 'fora_da_lista';
+
+export interface ItemComparacao {
+  numero: string;
+  assunto?: string;
+  statusPdf: string;
+  statusLista: string;
+  /** Status atual no acompanhamento (Firestore), quando o ticket é acompanhado. */
+  statusAcompanhamento?: string;
+  situacao: SituacaoComparacao;
+}
+
+/** Quantas vezes cada mudança de status aconteceu (ex.: ABERTA → ENCERRADA). */
+export interface TransicaoStatus {
+  de: string;
+  para: string;
+  quantidade: number;
+}
+
+export interface ResultadoComparacao {
+  itens: ItemComparacao[];
+  transicoes: TransicaoStatus[];
+  total: number;
+  iguais: number;
+  alterados: number;
+  semStatusPdf: number;
+  foraDaLista: number;
+  /** Percentual de alterados entre os tickets que podiam ser comparados. */
+  percentualAlterado: number;
+  /** A lista não estava carregada quando a análise rodou. */
+  listaIndisponivel: boolean;
+  /** O arquivo não trouxe status para nenhum ticket. */
+  arquivoSemStatus: boolean;
+  parecer?: string;
+}
+
+export const ROTULO_SITUACAO_COMPARACAO: Record<SituacaoComparacao, string> = {
+  igual: 'Sem alteração',
+  alterado: 'Status alterado',
+  sem_status_pdf: 'Sem status no arquivo',
+  fora_da_lista: 'Fora da lista'
+};
 
 export const ROTULO_SITUACAO_AUDITADA: Record<SituacaoAuditada, string> = {
   concluido: 'Atividade concluída',

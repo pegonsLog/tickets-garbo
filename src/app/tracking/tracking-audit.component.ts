@@ -6,6 +6,7 @@ import { AiAuditService, TAMANHO_MAX_PDF } from '../services/ai-audit.service';
 import { MODELOS_DISPONIVEIS, MODELO_PADRAO } from '../services/ai-analysis.service';
 import { ResultadoAuditoria } from './audit.model';
 import { montarAuditoriaHtml } from './audit-report-html';
+import { montarComparacaoHtml } from './status-report-html';
 
 /**
  * Auditoria do acompanhamento: o usuário envia o PDF com a relação de tickets
@@ -20,6 +21,11 @@ import { montarAuditoriaHtml } from './audit-report-html';
 })
 export class TrackingAuditComponent {
   @Input() aberto: boolean = false;
+  /**
+   * Todas as linhas da planilha carregada na tela (não só as filtradas): a comparação
+   * de status precisa encontrar qualquer ticket do arquivo, independente dos filtros.
+   */
+  @Input() lista: Record<string, string>[] = [];
   @Output() fechar = new EventEmitter<void>();
 
   @ViewChild('frame') frame?: ElementRef<HTMLIFrameElement>;
@@ -39,8 +45,26 @@ export class TrackingAuditComponent {
   arrastando: boolean = false;
 
   resultado: ResultadoAuditoria | null = null;
-  html: string = '';
-  htmlSeguro: SafeHtml | null = null;
+
+  /** Qual dos dois relatórios está na tela. */
+  aba: 'acompanhamento' | 'status' = 'acompanhamento';
+  private htmlAcompanhamento: string = '';
+  private htmlStatus: string = '';
+  private seguroAcompanhamento: SafeHtml | null = null;
+  private seguroStatus: SafeHtml | null = null;
+
+  /** Documento da aba atual (usado para imprimir, abrir e baixar). */
+  get html(): string {
+    return this.aba === 'status' ? this.htmlStatus : this.htmlAcompanhamento;
+  }
+
+  get htmlSeguro(): SafeHtml | null {
+    return this.aba === 'status' ? this.seguroStatus : this.seguroAcompanhamento;
+  }
+
+  trocarAba(aba: 'acompanhamento' | 'status'): void {
+    this.aba = aba;
+  }
 
   constructor(private auditoria: AiAuditService, private sanitizer: DomSanitizer) {}
 
@@ -99,12 +123,16 @@ export class TrackingAuditComponent {
         this.arquivo,
         { inicio: this.periodoInicio || undefined, fim: this.periodoFim || undefined },
         this.modelo,
-        etapa => (this.etapa = etapa)
+        etapa => (this.etapa = etapa),
+        this.lista
       );
       this.resultado = resultado;
-      this.html = montarAuditoriaHtml(resultado);
-      // HTML montado pela aplicação; todo texto dinâmico é escapado em montarAuditoriaHtml
-      this.htmlSeguro = this.sanitizer.bypassSecurityTrustHtml(this.html);
+      this.aba = 'acompanhamento';
+      // HTML montado pela aplicação; todo texto dinâmico é escapado nos geradores
+      this.htmlAcompanhamento = montarAuditoriaHtml(resultado);
+      this.htmlStatus = montarComparacaoHtml(resultado);
+      this.seguroAcompanhamento = this.sanitizer.bypassSecurityTrustHtml(this.htmlAcompanhamento);
+      this.seguroStatus = this.sanitizer.bypassSecurityTrustHtml(this.htmlStatus);
     } catch (e: any) {
       this.erro = e?.message || 'Não foi possível concluir a auditoria.';
     } finally {
@@ -116,8 +144,11 @@ export class TrackingAuditComponent {
   /** Volta ao formulário para auditar outro arquivo/período. */
   novaAuditoria(): void {
     this.resultado = null;
-    this.html = '';
-    this.htmlSeguro = null;
+    this.htmlAcompanhamento = '';
+    this.htmlStatus = '';
+    this.seguroAcompanhamento = null;
+    this.seguroStatus = null;
+    this.aba = 'acompanhamento';
     this.removerArquivo();
   }
 
@@ -145,7 +176,9 @@ export class TrackingAuditComponent {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `auditoria-acompanhamento-${dataStr}.html`;
+    link.download = this.aba === 'status'
+      ? `comparacao-status-${dataStr}.html`
+      : `auditoria-acompanhamento-${dataStr}.html`;
     link.click();
     URL.revokeObjectURL(url);
   }

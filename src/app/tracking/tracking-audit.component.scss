@@ -264,3 +264,68 @@
   .form-grid { grid-template-columns: 1fr; }
   .head-meta { display: none; }
 }
+
+/* ===== Abas dos relatórios ===== */
+.abas {
+  display: flex;
+  gap: 4px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex: 0 0 auto;
+}
+
+.aba {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-500);
+  font-size: 0.86rem;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+}
+
+.aba .material-icons { font-size: 18px; }
+
+.aba:hover { color: var(--ink-900); }
+
+.aba.ativa {
+  color: var(--brand-700);
+  border-bottom-color: var(--brand-600);
+}
+
+.aba:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: -2px;
+}
+
+.contador {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.pill.alerta-pill { background: var(--warning-bg); color: var(--warning-fg); }
+
+.aviso-lista {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.aviso-lista .material-icons { font-size: 18px; flex: 0 0 auto; }

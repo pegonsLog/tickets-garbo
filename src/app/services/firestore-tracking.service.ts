@@ -184,7 +184,15 @@ export class FirestoreTrackingService {
     const atualizadas = atuais.map(a => (a.id === atividadeId ? { ...a, ...campos } : a));
 
     const lote = writeBatch(this.db());
-    lote.update(doc(this.db(), COLECAO, id, SUBCOLECAO, atividadeId), campos);
+    // Sem hora na edição, o campo é removido (em vez de manter um valor antigo)
+    const dadosAtividade: UpdateData<DocumentData> = {
+      data: campos.data,
+      descricao: campos.descricao,
+      status: campos.status,
+      usuario: campos.usuario,
+      hora: campos.hora ?? deleteField()
+    };
+    lote.update(doc(this.db(), COLECAO, id, SUBCOLECAO, atividadeId), dadosAtividade);
     lote.update(doc(this.db(), COLECAO, id), dadosResumo(atualizadas));
     await this.gravar(lote);
   }
