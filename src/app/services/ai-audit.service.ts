@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { AI, GenerativeModel, GoogleAIBackend, Schema, getAI, getGenerativeModel } from 'firebase/ai';
-import { obterFirebaseApp } from './firebase-init';
+import { ehErroAppCheck, explicarErroAppCheck, obterFirebaseApp } from './firebase-init';
 import { MODELO_PADRAO } from './ai-analysis.service';
 import { FirestoreTrackingService } from './firestore-tracking.service';
 import {
@@ -332,8 +332,8 @@ function validarArquivo(arquivo: File): void {
 function traduzirErroIa(erro: any, modelo: string): string {
   const status = erro?.customErrorData?.status;
   const detalhe = String(erro?.message ?? erro);
-  if (/app check/i.test(detalhe)) {
-    return 'O token do App Check foi recusado. Confira a configuração do App Check (a mesma da análise de similaridade).';
+  if (ehErroAppCheck(detalhe)) {
+    return explicarErroAppCheck(detalhe);
   }
   if (status === 429) return 'A cota gratuita da IA foi atingida. Aguarde alguns instantes e tente novamente.';
   if (status === 404) return `O modelo "${modelo}" não está disponível. Selecione outro modelo.`;

@@ -17,6 +17,31 @@ import { environment } from '../../environments/environment';
 let appCache: FirebaseApp | undefined;
 let appCheckIniciado = false;
 
+/**
+ * Como o App Check está operando nesta página:
+ * - desligado: sem site key, nenhum token é enviado;
+ * - depuracao: localhost com token de depuração (precisa estar registrado no Console);
+ * - recaptcha: reCAPTCHA v3 real (site publicado; o domínio precisa estar liberado na chave).
+ */
+export type ModoAppCheck = 'desligado' | 'depuracao' | 'recaptcha';
+let modoAtual: ModoAppCheck = 'desligado';
+
+export function modoAppCheck(): ModoAppCheck {
+  return modoAtual;
+}
+
+/**
+ * O token de depuração só vale em máquina de desenvolvimento.
+ * Antes isso dependia de `environment.production`, mas o build de produção usa o
+ * mesmo environment.ts (production: false). Resultado: o site publicado também
+ * entrava em modo de depuração, gerava um token novo em cada navegador, nunca
+ * registrado, e o Firebase recusava todas as chamadas.
+ */
+function emDesenvolvimentoLocal(): boolean {
+  const host = typeof location !== 'undefined' ? location.hostname : '';
+  return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+}
+
 /** Configuração opcional de App Check lida do environment. */
 interface ConfigAppCheck {
   /** Site key do reCAPTCHA v3 gerada no Console do Firebase (App Check). */
@@ -55,7 +80,8 @@ function iniciarAppCheck(app: FirebaseApp): void {
   if (!siteKey) return;
 
   // O token de depuração precisa ser definido antes de initializeAppCheck
-  if (cfg.debugToken && !environment.production) {
+  const depuracao = !!cfg.debugToken && emDesenvolvimentoLocal();
+  if (depuracao) {
     (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = cfg.debugToken;
   }
 
@@ -65,8 +91,46 @@ function iniciarAppCheck(app: FirebaseApp): void {
       isTokenAutoRefreshEnabled: true
     });
     appCheckIniciado = true;
+    modoAtual = depuracao ? 'depuracao' : 'recaptcha';
   } catch (erro) {
     // Não impede o uso do app: o erro de token aparecerá na chamada, já explicado
     console.error('[Firebase] Falha ao inicializar o App Check', erro);
+  }
+}
+
+/** Indica se o detalhe de um erro do Firebase é uma recusa do App Check. */
+export function ehErroAppCheck(detalhe: string): boolean {
+  return /app\s*check/i.test(detalhe ?? '');
+}
+
+/**
+ * Mensagem acionável para recusa do App Check, conforme o modo em que a página está.
+ * Usada por todas as chamadas de IA, para que o diagnóstico seja o mesmo em qualquer tela.
+ */
+export function explicarErroAppCheck(detalhe: string): string {
+  const sufixo = detalhe ? ` (detalhe: ${detalhe.replace(/\s+/g, ' ').trim().slice(0, 300)})` : '';
+
+  // Caso diferente do token recusado: o próprio projeto está bloqueado no Firebase
+  // porque o enforcement do App Check está desligado. Nenhum token resolve isso.
+  if (/deactivated|must enforce/i.test(detalhe ?? '')) {
+    return 'O Firebase desativou o AI Logic neste projeto porque o App Check não está aplicado (enforcement '
+      + 'desligado). Isso não é problema do token deste navegador. Para reativar: Console do Firebase > App Check > '
+      + 'aba APIs > Firebase AI Logic > Aplicar (Enforce). Antes, registre o token de depuração deste navegador, '
+      + 'senão o localhost passa a ser bloqueado.' + sufixo;
+  }
+
+  switch (modoAtual) {
+    case 'depuracao':
+      return 'O App Check recusou o token de depuração deste navegador. Cada navegador (e cada limpeza de '
+        + 'dados do site) gera um token diferente. Abra o console do navegador (F12), copie o valor da linha '
+        + '"App Check debug token" e registre em Console do Firebase > App Check > Apps > tickets-garbo > '
+        + 'Gerenciar tokens de depuração. Depois, recarregue a página.' + sufixo;
+    case 'recaptcha':
+      return 'O App Check recusou o token do reCAPTCHA. Confira, em google.com/recaptcha/admin, se o domínio '
+        + `"${typeof location !== 'undefined' ? location.hostname : ''}" está na lista de domínios da chave, e se a `
+        + 'chave secreta cadastrada no App Check é a mesma dessa chave.' + sufixo;
+    default:
+      return 'Este projeto exige App Check para usar a IA, e o app não está enviando token: preencha '
+        + '"appCheck.recaptchaV3SiteKey" em src/environments/environment.ts.' + sufixo;
   }
 }

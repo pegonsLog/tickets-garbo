@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { AI, GenerativeModel, GoogleAIBackend, Schema, getAI, getGenerativeModel } from 'firebase/ai';
 import { RelatorioIa } from '../ai-report/ai-report.model';
-import { appCheckAtivo, obterFirebaseApp } from './firebase-init';
+import { ehErroAppCheck, explicarErroAppCheck, obterFirebaseApp } from './firebase-init';
 
 /** Resultado da análise, já com o consumo de tokens informado pelo modelo. */
 export interface ResultadoAnalise {
@@ -225,16 +225,8 @@ export class AiAnalysisService {
     const sufixo = ` (detalhe: ${this.encurtar(detalhe)})`;
 
     // O App Check é verificado antes do status: um token ausente/inválido chega como 401
-    if (/app check/i.test(String(detalhe))) {
-      return appCheckAtivo()
-        ? 'O App Check está ativo, mas o token foi recusado. Em desenvolvimento (localhost), registre o token '
-          + 'de depuração exibido no console do navegador em: Console do Firebase > App Check > seu app > '
-          + 'Gerenciar tokens de depuração.' + sufixo
-        : 'Este projeto exige App Check para usar a IA, e o app ainda não envia um token. '
-          + 'Escolha uma das opções: (1) configure o App Check — crie a chave reCAPTCHA v3 no Console do '
-          + 'Firebase (App Check > registrar app) e preencha "appCheck.recaptchaV3SiteKey" em '
-          + 'src/environments/environment.ts; ou (2) desative o enforcement em Console do Firebase > '
-          + 'App Check > APIs > Firebase AI Logic.' + sufixo;
+    if (ehErroAppCheck(String(detalhe))) {
+      return explicarErroAppCheck(String(detalhe));
     }
 
     if (codigo === 'api-not-enabled') {
