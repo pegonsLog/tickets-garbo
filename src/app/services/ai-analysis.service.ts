@@ -1,7 +1,9 @@
 import { Injectable } from '@angular/core';
 import { AI, GenerativeModel, GoogleAIBackend, Schema, getAI, getGenerativeModel } from 'firebase/ai';
 import { RelatorioIa } from '../ai-report/ai-report.model';
-import { ehErroAppCheck, explicarErroAppCheck, obterFirebaseApp } from './firebase-init';
+import {
+  ehErroAppCheck, ehErroModoTemplate, explicarErroAppCheck, explicarErroModoTemplate, obterFirebaseApp
+} from './firebase-init';
 
 /** Resultado da análise, já com o consumo de tokens informado pelo modelo. */
 export interface ResultadoAnalise {
@@ -225,6 +227,9 @@ export class AiAnalysisService {
     const sufixo = ` (detalhe: ${this.encurtar(detalhe)})`;
 
     // O App Check é verificado antes do status: um token ausente/inválido chega como 401
+    if (ehErroModoTemplate(String(detalhe))) {
+      return explicarErroModoTemplate();
+    }
     if (ehErroAppCheck(String(detalhe))) {
       return explicarErroAppCheck(String(detalhe));
     }

@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import { AI, GenerativeModel, GoogleAIBackend, Schema, getAI, getGenerativeModel } from 'firebase/ai';
-import { ehErroAppCheck, explicarErroAppCheck, obterFirebaseApp } from './firebase-init';
+import {
+  ehErroAppCheck, ehErroModoTemplate, explicarErroAppCheck, explicarErroModoTemplate, obterFirebaseApp
+} from './firebase-init';
 import { MODELO_PADRAO } from './ai-analysis.service';
 import { FirestoreTrackingService } from './firestore-tracking.service';
 import {
@@ -332,6 +334,9 @@ function validarArquivo(arquivo: File): void {
 function traduzirErroIa(erro: any, modelo: string): string {
   const status = erro?.customErrorData?.status;
   const detalhe = String(erro?.message ?? erro);
+  if (ehErroModoTemplate(detalhe)) {
+    return explicarErroModoTemplate();
+  }
   if (ehErroAppCheck(detalhe)) {
     return explicarErroAppCheck(detalhe);
   }

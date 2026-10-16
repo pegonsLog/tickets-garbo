@@ -134,3 +134,17 @@ export function explicarErroAppCheck(detalhe: string): string {
         + '"appCheck.recaptchaV3SiteKey" em src/environments/environment.ts.' + sufixo;
   }
 }
+
+/**
+ * Template-Only Mode: configuração do projeto que só aceita chamadas feitas por
+ * "server prompt templates". O app chama o modelo diretamente, então é bloqueado.
+ */
+export function ehErroModoTemplate(detalhe: string): boolean {
+  return /template-only mode/i.test(detalhe ?? '');
+}
+
+export function explicarErroModoTemplate(): string {
+  return 'O projeto está com o "Template-Only Mode" ativado no Firebase AI Logic, que bloqueia chamadas '
+    + 'diretas ao modelo, como as deste app. Para liberar: Console do Firebase > AI Logic > aba Configurações '
+    + '(Settings) > Template mode > desligue "Enforce template-only mode" e confirme.';
+}
