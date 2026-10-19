@@ -32,6 +32,9 @@ export const environment = {
   // Deixe recaptchaV3SiteKey vazio para não inicializar o App Check.
   appCheck: {
     recaptchaV3SiteKey: '',
+    // 'enterprise' para chaves criadas vinculadas a um projeto do Google Cloud (registre o app
+    // no App Check como "reCAPTCHA Enterprise"); 'v3' para chaves clássicas com chave secreta.
+    provedor: 'enterprise',
     debugToken: true
   }
 };

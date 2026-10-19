@@ -2,7 +2,8 @@ import { Injectable } from '@angular/core';
 import { AI, GenerativeModel, GoogleAIBackend, Schema, getAI, getGenerativeModel } from 'firebase/ai';
 import { RelatorioIa } from '../ai-report/ai-report.model';
 import {
-  ehErroAppCheck, ehErroModoTemplate, explicarErroAppCheck, explicarErroModoTemplate, obterFirebaseApp
+  comDiagnosticoAppCheck, ehErroAppCheck, ehErroModoTemplate, explicarErroAppCheck, explicarErroModoTemplate,
+  obterFirebaseApp
 } from './firebase-init';
 
 /** Resultado da análise, já com o consumo de tokens informado pelo modelo. */
@@ -128,7 +129,8 @@ export class AiAnalysisService {
 
     if (!this.ai) {
       // GoogleAIBackend = Gemini Developer API (possui nível sem custo)
-      this.ai = getAI(obterFirebaseApp(), { backend: new GoogleAIBackend() });
+      // Tokens de uso único: aceitos com a proteção contra repetição do App Check ligada ou não
+      this.ai = getAI(obterFirebaseApp(), { backend: new GoogleAIBackend(), useLimitedUseAppCheckTokens: true });
     }
 
     const modelo = getGenerativeModel(this.ai, {
@@ -163,7 +165,7 @@ export class AiAnalysisService {
         `Analise os tickets abaixo e devolva o relatório de agrupamentos.\n\n${dados}`
       );
     } catch (erro) {
-      throw new Error(this.traduzirErro(erro, nomeModelo));
+      throw new Error(await comDiagnosticoAppCheck(erro, this.traduzirErro(erro, nomeModelo)));
     }
 
     const candidato = resposta.response.candidates?.[0];

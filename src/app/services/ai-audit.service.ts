@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { AI, GenerativeModel, GoogleAIBackend, Schema, getAI, getGenerativeModel } from 'firebase/ai';
 import {
-  ehErroAppCheck, ehErroModoTemplate, explicarErroAppCheck, explicarErroModoTemplate, obterFirebaseApp
+  comDiagnosticoAppCheck, ehErroAppCheck, ehErroModoTemplate, explicarErroAppCheck, explicarErroModoTemplate,
+  obterFirebaseApp
 } from './firebase-init';
 import { MODELO_PADRAO } from './ai-analysis.service';
 import { FirestoreTrackingService } from './firestore-tracking.service';
@@ -176,7 +177,8 @@ export class AiAuditService {
 
   private obterAi(): AI {
     if (!this.ai) {
-      this.ai = getAI(obterFirebaseApp(), { backend: new GoogleAIBackend() });
+      // Tokens de uso único: aceitos com a proteção contra repetição do App Check ligada ou não
+      this.ai = getAI(obterFirebaseApp(), { backend: new GoogleAIBackend(), useLimitedUseAppCheckTokens: true });
     }
     return this.ai;
   }
@@ -227,7 +229,7 @@ export class AiAuditService {
       ]);
     } catch (erro: any) {
       console.error('[Auditoria] Falha ao ler o PDF', erro);
-      throw new Error(traduzirErroIa(erro, modelo));
+      throw new Error(await comDiagnosticoAppCheck(erro, traduzirErroIa(erro, modelo)));
     }
 
     if (resposta.response.candidates?.[0]?.finishReason === 'MAX_TOKENS') {

@@ -1,5 +1,7 @@
 import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
-import { ReCaptchaV3Provider, initializeAppCheck } from 'firebase/app-check';
+import {
+  AppCheck, ReCaptchaEnterpriseProvider, ReCaptchaV3Provider, getToken, initializeAppCheck
+} from 'firebase/app-check';
 import { environment } from '../../environments/environment';
 
 /**
@@ -16,6 +18,7 @@ import { environment } from '../../environments/environment';
 
 let appCache: FirebaseApp | undefined;
 let appCheckIniciado = false;
+let appCheckInstancia: AppCheck | undefined;
 
 /**
  * Como o App Check está operando nesta página:
@@ -42,10 +45,46 @@ function emDesenvolvimentoLocal(): boolean {
   return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
 }
 
+/** Corpo da última resposta de erro do servidor do App Check (motivo real da recusa). */
+let ultimaRecusaAppCheck = '';
+
+/**
+ * O SDK do App Check descarta o corpo das respostas de erro da troca de token e
+ * informa só "400 error". Este interceptador lê esse corpo (apenas para as URLs de
+ * troca do App Check, sem alterar a requisição nem a resposta) para o diagnóstico.
+ */
+function capturarRespostasDoAppCheck(): void {
+  if (typeof window === 'undefined' || (window as any).__capturaAppCheck) return;
+  (window as any).__capturaAppCheck = true;
+
+  const fetchOriginal = window.fetch.bind(window);
+  window.fetch = async (entrada: RequestInfo | URL, init?: RequestInit) => {
+    const resposta = await fetchOriginal(entrada, init);
+    const url = typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url;
+    if (!resposta.ok && /firebaseappcheck\.googleapis\.com/.test(url) && /:exchange/i.test(url)) {
+      resposta.clone().text()
+        .then(corpo => {
+          ultimaRecusaAppCheck = `HTTP ${resposta.status}: ${corpo.replace(/\s+/g, ' ').trim()}`;
+          console.error('[Firebase] Resposta do App Check na troca do token', ultimaRecusaAppCheck);
+        })
+        .catch(() => { /* sem corpo legível: o diagnóstico usa só o código */ });
+    }
+    return resposta;
+  };
+}
+
 /** Configuração opcional de App Check lida do environment. */
 interface ConfigAppCheck {
-  /** Site key do reCAPTCHA v3 gerada no Console do Firebase (App Check). */
+  /** Site key do reCAPTCHA (o nome do campo foi mantido por compatibilidade). */
   recaptchaV3SiteKey?: string;
+  /**
+   * Tipo da chave do reCAPTCHA:
+   * - 'enterprise': chave criada vinculada a um projeto do Google Cloud (reCAPTCHA Enterprise).
+   *   No App Check, o app é registrado na opção "reCAPTCHA Enterprise", só com a site key.
+   * - 'v3': chave clássica, com chave secreta, registrada na opção "reCAPTCHA".
+   * Usar o tipo errado faz a troca do token falhar com "AppCheck: 400 error".
+   */
+  provedor?: 'enterprise' | 'v3';
   /**
    * Token de depuração para uso em localhost.
    * `true` gera um token novo (exibido no console do navegador, precisa ser
@@ -79,6 +118,8 @@ function iniciarAppCheck(app: FirebaseApp): void {
   const siteKey = (cfg.recaptchaV3SiteKey ?? '').trim();
   if (!siteKey) return;
 
+  capturarRespostasDoAppCheck();
+
   // O token de depuração precisa ser definido antes de initializeAppCheck
   const depuracao = !!cfg.debugToken && emDesenvolvimentoLocal();
   if (depuracao) {
@@ -86,10 +127,10 @@ function iniciarAppCheck(app: FirebaseApp): void {
   }
 
   try {
-    initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(siteKey),
-      isTokenAutoRefreshEnabled: true
-    });
+    const provider = cfg.provedor === 'enterprise'
+      ? new ReCaptchaEnterpriseProvider(siteKey)
+      : new ReCaptchaV3Provider(siteKey);
+    appCheckInstancia = initializeAppCheck(app, { provider, isTokenAutoRefreshEnabled: true });
     appCheckIniciado = true;
     modoAtual = depuracao ? 'depuracao' : 'recaptcha';
   } catch (erro) {
@@ -126,9 +167,9 @@ export function explicarErroAppCheck(detalhe: string): string {
         + '"App Check debug token" e registre em Console do Firebase > App Check > Apps > tickets-garbo > '
         + 'Gerenciar tokens de depuração. Depois, recarregue a página.' + sufixo;
     case 'recaptcha':
-      return 'O App Check recusou o token do reCAPTCHA. Confira, em google.com/recaptcha/admin, se o domínio '
-        + `"${typeof location !== 'undefined' ? location.hostname : ''}" está na lista de domínios da chave, e se a `
-        + 'chave secreta cadastrada no App Check é a mesma dessa chave.' + sufixo;
+      return 'O App Check recusou o token do reCAPTCHA deste site '
+        + `("${typeof location !== 'undefined' ? location.hostname : ''}"). O motivo exato aparece no navegador: `
+        + 'F12 > aba Rede (Network) > requisição "exchangeRecaptcha..." > aba Resposta.' + sufixo;
     default:
       return 'Este projeto exige App Check para usar a IA, e o app não está enviando token: preencha '
         + '"appCheck.recaptchaV3SiteKey" em src/environments/environment.ts.' + sufixo;
@@ -147,4 +188,72 @@ export function explicarErroModoTemplate(): string {
   return 'O projeto está com o "Template-Only Mode" ativado no Firebase AI Logic, que bloqueia chamadas '
     + 'diretas ao modelo, como as deste app. Para liberar: Console do Firebase > AI Logic > aba Configurações '
     + '(Settings) > Template mode > desligue "Enforce template-only mode" e confirme.';
+}
+
+/**
+ * Pede um token novo ao App Check e devolve o motivo da falha, se houver.
+ *
+ * Quando a troca do token falha, o SDK do App Check não interrompe a chamada à IA:
+ * ele envia um token inválido, e o servidor responde só "token is invalid". O motivo
+ * real (domínio não liberado, chave secreta errada, pontuação baixa) fica nesta etapa,
+ * por isso ela é consultada separadamente para montar o diagnóstico.
+ */
+export async function diagnosticarAppCheck(): Promise<string> {
+  if (!appCheckInstancia) return '';
+  try {
+    // Sem forçar renovação: cada troca nova consulta o reCAPTCHA de novo, e uma nota baixa
+    // dispara bloqueio de até 1 dia. Aqui basta saber se existe um token válido.
+    await getToken(appCheckInstancia, false);
+    return 'TOKEN_OK';
+  } catch (erro: any) {
+    console.error('[Firebase] Falha ao obter o token do App Check', erro);
+    // Dá tempo para o interceptador terminar de ler o corpo da resposta
+    await new Promise(r => setTimeout(r, 300));
+    const motivo = String(erro?.message ?? erro);
+    return ultimaRecusaAppCheck ? `${motivo} | Resposta do servidor: ${ultimaRecusaAppCheck}` : motivo;
+  }
+}
+
+/** Traduz o motivo da falha na obtenção do token em uma orientação concreta. */
+export function explicarFalhaToken(motivo: string): string {
+  const host = typeof location !== 'undefined' ? location.hostname : '';
+  if (!motivo) return '';
+  if (motivo === 'TOKEN_OK') {
+    return ' Causa encontrada: o App Check emitiu um token válido, mas o Firebase AI Logic o recusou. '
+      + 'Normalmente isso indica a "proteção contra repetição" ligada para o AI Logic (Console do Firebase > '
+      + 'App Check > APIs > Firebase AI Logic). O app já envia tokens de uso único; se o erro continuar, '
+      + 'desative essa proteção.';
+  }
+  if (/recaptcha/i.test(motivo) && !/http status|fetch-status|403|400/i.test(motivo)) {
+    return ` Causa encontrada: o reCAPTCHA não gerou o token neste site. Normalmente o domínio "${host}" `
+      + 'não está na lista de domínios da chave, ou a chave não é do tipo v3 (pontuação). '
+      + `Motivo: ${motivo}`;
+  }
+  if (/403|400|fetch-status-error/i.test(motivo)) {
+    const enterprise = ((environment as any).appCheck?.provedor) === 'enterprise';
+    return ' Causa encontrada: o App Check recusou a validação do reCAPTCHA. '
+      + (enterprise
+        ? 'O app está usando o provedor reCAPTCHA Enterprise: confira se, em App Check > Apps > tickets-garbo, '
+          + 'o provedor registrado é "reCAPTCHA Enterprise" com a mesma site key, e se a API "reCAPTCHA Enterprise" '
+          + 'está ativada no Google Cloud.'
+        : 'Se a chave foi criada vinculada a um projeto do Google Cloud, ela é do tipo Enterprise: defina '
+          + 'appCheck.provedor = "enterprise" no environment.ts e registre o app na opção "reCAPTCHA Enterprise". '
+          + 'Se for uma chave clássica, a chave secreta no App Check não corresponde à site key.')
+      + ` Motivo: ${motivo}`;
+  }
+  if (/throttl/i.test(motivo)) {
+    return ' Causa encontrada: muitas falhas seguidas bloquearam temporariamente as tentativas. '
+      + `Corrija a configuração, aguarde cerca de 1 dia ou limpe os dados do site. Motivo: ${motivo}`;
+  }
+  return ` Motivo informado pelo App Check: ${motivo}`;
+}
+
+/**
+ * Se o erro foi um token de App Check recusado (e não o projeto bloqueado), acrescenta
+ * à mensagem o motivo real obtido ao pedir um token novo.
+ */
+export async function comDiagnosticoAppCheck(erro: unknown, mensagem: string): Promise<string> {
+  const detalhe = String((erro as any)?.message ?? erro ?? '');
+  if (!ehErroAppCheck(detalhe) || /deactivated|must enforce/i.test(detalhe)) return mensagem;
+  return mensagem + explicarFalhaToken(await diagnosticarAppCheck());
 }
