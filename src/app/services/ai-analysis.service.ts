@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { AI, GenerativeModel, GoogleAIBackend, Schema, getAI, getGenerativeModel } from 'firebase/ai';
 import { RelatorioIa } from '../ai-report/ai-report.model';
+import { comRetentativa, ehErroTransitorio, explicarSobrecarga } from './ai-retry';
 import {
   comDiagnosticoAppCheck, ehErroAppCheck, ehErroModoTemplate, explicarErroAppCheck, explicarErroModoTemplate,
   obterFirebaseApp
@@ -161,10 +162,11 @@ export class AiAnalysisService {
 
     let resposta;
     try {
-      resposta = await modelo.generateContent(
+      resposta = await comRetentativa(() => modelo.generateContent(
         `Analise os tickets abaixo e devolva o relatório de agrupamentos.\n\n${dados}`
-      );
+      ));
     } catch (erro) {
+      if (ehErroTransitorio(erro)) throw new Error(explicarSobrecarga(nomeModelo));
       throw new Error(await comDiagnosticoAppCheck(erro, this.traduzirErro(erro, nomeModelo)));
     }
 

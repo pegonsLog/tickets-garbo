@@ -5,6 +5,7 @@ import {
   obterFirebaseApp
 } from './firebase-init';
 import { MODELO_PADRAO } from './ai-analysis.service';
+import { comRetentativa, ehErroTransitorio, explicarSobrecarga } from './ai-retry';
 import { FirestoreTrackingService } from './firestore-tracking.service';
 import {
   ItemPdf,
@@ -126,7 +127,7 @@ export class AiAuditService {
     }
 
     aoProgredir('Lendo o PDF com a IA...');
-    const itensPdf = await this.extrairTickets(arquivo, modelo);
+    const itensPdf = await this.extrairTickets(arquivo, modelo, aoProgredir);
     const numeros = itensPdf.map(i => i.numero);
     if (numeros.length === 0) {
       throw new Error('Nenhum número de ticket foi encontrado no PDF. Verifique se o arquivo contém a relação de tickets.');
@@ -218,17 +219,25 @@ export class AiAuditService {
   }
 
   /** Envia o PDF ao modelo e devolve os tickets (número + status) encontrados, sem repetição. */
-  private async extrairTickets(arquivo: File, modelo: string): Promise<ItemPdf[]> {
+  private async extrairTickets(
+    arquivo: File,
+    modelo: string,
+    aoProgredir: (etapa: string) => void = () => {}
+  ): Promise<ItemPdf[]> {
     const base64 = await paraBase64(arquivo);
 
     let resposta;
     try {
-      resposta = await this.extrator(modelo).generateContent([
-        { inlineData: { mimeType: 'application/pdf', data: base64 } },
-        { text: 'Extraia os números dos tickets listados neste documento.' }
-      ]);
+      resposta = await comRetentativa(
+        () => this.extrator(modelo).generateContent([
+          { inlineData: { mimeType: 'application/pdf', data: base64 } },
+          { text: 'Extraia os números dos tickets listados neste documento.' }
+        ]),
+        (n, total) => aoProgredir(`O modelo está sobrecarregado. Nova tentativa (${n} de ${total})...`)
+      );
     } catch (erro: any) {
       console.error('[Auditoria] Falha ao ler o PDF', erro);
+      if (ehErroTransitorio(erro)) throw new Error(explicarSobrecarga(modelo));
       throw new Error(await comDiagnosticoAppCheck(erro, traduzirErroIa(erro, modelo)));
     }
 
@@ -265,9 +274,9 @@ export class AiAuditService {
         : ['- nenhuma'])
     ];
 
-    const resposta = await this.parecerista(modelo, INSTRUCAO_PARECER_STATUS).generateContent(
+    const resposta = await comRetentativa(() => this.parecerista(modelo, INSTRUCAO_PARECER_STATUS).generateContent(
       `Avalie a comparação de status com base nestes números:\n\n${linhas.join('\n')}`
-    );
+    ));
     return (resposta.response.text() ?? '').trim();
   }
 
@@ -286,9 +295,9 @@ export class AiAuditService {
         `- ${u.usuario}: ${u.atividades} atividade(s), ${u.concluidas} concluída(s), em ${u.tickets} ticket(s)`)
     ];
 
-    const resposta = await this.parecerista(modelo).generateContent(
+    const resposta = await comRetentativa(() => this.parecerista(modelo).generateContent(
       `Avalie o desempenho do atendimento com base nestes números:\n\n${linhas.join('\n')}`
-    );
+    ));
     return (resposta.response.text() ?? '').trim();
   }
 }
