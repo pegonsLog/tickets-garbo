@@ -1,0 +1,22 @@
+[33m>[39m Building...
+[32m√[39m Building...
+[1mInitial chunk files[22m  [2m | [22m[1mNames[22m        [2m | [22m [1mRaw size[22m[2m | [22m[1mEstimated transfer size[22m
+[32mmain-M7ZKXYI4.js[39m     [2m | [22m[2mmain[22m         [2m | [22m  [36m1.52 MB[39m[2m | [22m              [36m389.53 kB[39m
+[32mchunk-K3PFPKJS.js[39m    [2m | [22m[2m-[22m            [2m | [22m[36m148.92 kB[39m[2m | [22m               [36m43.07 kB[39m
+[32mstyles-HBWRPCK4.css[39m  [2m | [22m[2mstyles[22m       [2m | [22m [36m73.20 kB[39m[2m | [22m                [36m7.79 kB[39m
+[32mpolyfills-FFHMD2TL.js[39m[2m | [22m[2mpolyfills[22m    [2m | [22m [36m34.52 kB[39m[2m | [22m               [36m11.28 kB[39m
+[32mchunk-H5ORMA4Q.js[39m    [2m | [22m[2m-[22m            [2m | [22m  [36m1.92 kB[39m[2m | [22m              [36m843 bytes[39m
+[32mchunk-B2EGF3GI.js[39m    [2m | [22m[2m-[22m            [2m | [22m[36m347 bytes[39m[2m | [22m              [36m347 bytes[39m
+
+[1m [22m                    [2m | [22m[1mInitial total[22m[2m | [22m  [1m1.78 MB[22m[2m | [22m              [1m452.86 kB[22m
+
+[1mLazy chunk files[22m     [2m | [22m[1mNames[22m        [2m | [22m [1mRaw size[22m[2m | [22m[1mEstimated transfer size[22m
+[32mchunk-SH26NDE2.js[39m    [2m | [22m[2mhtml2canvas[22m  [2m | [22m[36m203.12 kB[39m[2m | [22m               [36m38.55 kB[39m
+[32mchunk-FU3SFYYW.js[39m    [2m | [22m[2mindex-es[22m     [2m | [22m[36m159.40 kB[39m[2m | [22m               [36m47.17 kB[39m
+[32mchunk-HSWYA4I4.js[39m    [2m | [22m[2mbrowser[22m      [2m | [22m [36m67.24 kB[39m[2m | [22m               [36m17.45 kB[39m
+[32mchunk-GTONKX3Q.js[39m    [2m | [22m[2mpurify[22m       [2m | [22m [36m22.12 kB[39m[2m | [22m                [36m7.88 kB[39m
+
+Application bundle generation complete. [5.294 seconds]
+
+Output location: C:\projetos\tickets-garbo\dist\tickets
+
